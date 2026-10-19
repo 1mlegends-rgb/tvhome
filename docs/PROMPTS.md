@@ -1,6 +1,6 @@
 # PROMPTS.md — rebuild this project with an LLM, step by step
 
-> 🇸🇦 العربية: [PROMPTS.ar.md](PROMPTS.ar.md)
+> 🇸🇦 العربية: [PROMPTS.ar.md](PROMPTS.ar.md) · **One-shot version:** [MASTER-PROMPT.md](MASTER-PROMPT.md)
 
 This is the prompt playbook behind tvhome. Paste each prompt into your coding agent (Claude
 Code, Cursor, Codex…) **in order**. Each one is a single focused phase. Wait for the phase to be

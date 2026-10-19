@@ -24,6 +24,15 @@
 
 ---
 
+## 🤖 أعِد بناءه بالذكاء الاصطناعي: أمر واحد قابل للنسخ
+
+الملف **[docs/MASTER-PROMPT.ar.md](docs/MASTER-PROMPT.ar.md)** يحتوي على أمر نصي واحد
+(بالإنجليزية: [MASTER-PROMPT.md](docs/MASTER-PROMPT.md)). انسخه والصقه في Claude Code أو Cursor أو Codex
+أو أي أداة مشابهة، فيبني النظام كاملًا مرحلةً بعد مرحلة. إن كنت تفضّل خطوات أصغر فاستخدم
+[docs/PROMPTS.ar.md](docs/PROMPTS.ar.md).
+
+---
+
 ## الميزات
 
 | الواجهة | ما تقدّمه |

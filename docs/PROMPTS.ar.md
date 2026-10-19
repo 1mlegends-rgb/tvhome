@@ -2,7 +2,7 @@
 
 # PROMPTS.md — أعِد بناء هذا المشروع باستخدام نموذج لغوي كبير (LLM)، خطوة بخطوة
 
-> 🇬🇧 English: [PROMPTS.md](PROMPTS.md)
+> 🇬🇧 English: [PROMPTS.md](PROMPTS.md) · **النسخة الكاملة بأمر واحد:** [MASTER-PROMPT.ar.md](MASTER-PROMPT.ar.md)
 
 هذا هو دليل الأوامر النصية (prompt playbook) الذي بُني به tvhome. الصق كل أمر في وكيل البرمجة (coding agent) الذي تستخدمه (Claude
 Code أو Cursor أو Codex…) **بالترتيب**. كل أمر يمثّل مرحلة واحدة مركّزة. انتظر حتى يُتحقَّق من المرحلة

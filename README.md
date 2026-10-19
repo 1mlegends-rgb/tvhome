@@ -22,6 +22,15 @@ and tuned to run smoothly on a cheap 2 GB Android 9 box.
 
 ---
 
+## 🤖 Rebuild it with AI: one copyable prompt
+
+**[docs/MASTER-PROMPT.md](docs/MASTER-PROMPT.md)** is a single prompt you can copy (Arabic:
+[MASTER-PROMPT.ar.md](docs/MASTER-PROMPT.ar.md)). Paste it into Claude Code, Cursor, Codex or a
+similar tool and it builds this whole system phase by phase. Prefer smaller steps? Use
+[docs/PROMPTS.md](docs/PROMPTS.md) ([العربية](docs/PROMPTS.ar.md)).
+
+---
+
 ## Features
 
 | Surface | What it does |
@@ -184,6 +193,7 @@ app/src/main/java/com/hamad/tvhome/
 docs/HIG-tvOS.md   the binding design spec
 AGENTS.md          instructions for AI coding agents (also AGENTS.ar.md)
 docs/PROMPTS.md    the prompt playbook to rebuild this with an LLM (also PROMPTS.ar.md)
+docs/MASTER-PROMPT.md  one complete copyable prompt for the whole system (also MASTER-PROMPT.ar.md)
 ```
 
 ---

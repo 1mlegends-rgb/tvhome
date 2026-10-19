@@ -3,7 +3,8 @@
 > 🇸🇦 العربية: [AGENTS.ar.md](AGENTS.ar.md) · Human docs: [README.md](README.md) · Design spec: [docs/HIG-tvOS.md](docs/HIG-tvOS.md)
 
 This file is the operating manual for any LLM agent (Claude, GPT, Gemini, Cursor, Codex…)
-working in this repo. Read it fully before your first edit.
+working in this repo. Read it fully before your first edit. To rebuild the whole system from scratch, follow
+[docs/MASTER-PROMPT.md](docs/MASTER-PROMPT.md).
 
 ---
 

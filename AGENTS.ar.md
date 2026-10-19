@@ -5,7 +5,7 @@
 > 🇬🇧 English: [AGENTS.md](AGENTS.md) · التوثيق للبشر: [README.ar.md](README.ar.md) · مواصفة التصميم: [docs/HIG-tvOS.md](docs/HIG-tvOS.md)
 
 هذا الملف هو دليل التشغيل لأي وكيل (agent) يعتمد على نموذج لغوي كبير (LLM) — مثل Claude وGPT وGemini وCursor وCodex… —
-ويعمل في هذا المستودع. اقرأه كاملًا قبل أول تعديل.
+ويعمل في هذا المستودع. اقرأه كاملًا قبل أول تعديل. ولإعادة بناء النظام كاملًا من الصفر اتّبع [docs/MASTER-PROMPT.ar.md](docs/MASTER-PROMPT.ar.md).
 
 ---
 
