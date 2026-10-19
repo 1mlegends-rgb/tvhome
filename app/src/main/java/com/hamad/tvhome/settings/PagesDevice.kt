@@ -37,21 +37,31 @@ internal fun SettingsController.linkRow(
 }
 
 private fun rootPage(c: SettingsController): PageSpec {
-    fun nav(id: String, title: Int, dest: Dest, before: () -> Unit = {}) =
-        Item(id, c.s(title), chevron = true, onClick = { before(); c.push(dest) })
+    fun nav(id: String, title: Int, dest: Dest, value: String? = null, before: () -> Unit = {}) =
+        Item(id, c.s(title), value = value, chevron = true, onClick = { before(); c.push(dest) })
+    val i = c.info
+    val net = i.network()
+    val netValue = when (net.link) {
+        Link.WIFI -> net.ssid ?: "Wi-Fi"
+        Link.ETHERNET -> "Ethernet"
+        Link.NONE -> "Not Connected"
+        Link.OTHER -> null
+    }
+    val dream = i.currentDream()?.let { i.dreamLabel(it) }
     return PageSpec(
         c.s(R.string.settings_title),
         Art.Gear,
         listOf(
             nav("general", R.string.settings_general, Dest.General),
-            nav("video", R.string.settings_video_audio, Dest.VideoAudio),
-            nav("screensaver", R.string.settings_screen_saver, Dest.ScreenSaver),
+            nav("video", R.string.settings_video_audio, Dest.VideoAudio, i.displayMode()?.let(Fmt::format)),
+            nav("screensaver", R.string.settings_screen_saver, Dest.ScreenSaver, dream),
             nav("home", R.string.settings_home_screen, Dest.HomeScreen),
             nav("remotes", R.string.settings_remotes, Dest.Remotes),
             nav("apps", R.string.settings_apps, Dest.Apps) { c.loadApps() },
-            nav("network", R.string.settings_network, Dest.Network),
+            nav("network", R.string.settings_network, Dest.Network, netValue),
             nav("system", R.string.settings_system, Dest.System),
         ),
+        caption = "${i.deviceName()}\nAndroid ${i.androidVersion()}",
     )
 }
 

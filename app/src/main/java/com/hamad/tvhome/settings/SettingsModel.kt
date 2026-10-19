@@ -93,7 +93,7 @@ internal data class Item(
     val onClick: (() -> Unit)? = null,
 ) : Entry
 
-internal data class PageSpec(val title: String, val art: Art, val entries: List<Entry>)
+internal data class PageSpec(val title: String, val art: Art, val entries: List<Entry>, val caption: String? = null)
 
 internal data class AlertButton(val label: String, val destructive: Boolean = false, val action: () -> Unit = {})
 

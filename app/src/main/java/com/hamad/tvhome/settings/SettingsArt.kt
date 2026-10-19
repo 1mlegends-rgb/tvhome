@@ -62,14 +62,10 @@ private val ShadowColor = Color(0x59000000)
 internal fun SettingsArt(art: Art, modifier: Modifier = Modifier) {
     Box(modifier.size(ArtSize), contentAlignment = Alignment.Center) {
         when (art) {
-            Art.Gear -> GearArt(Modifier.size(ArtSize))
-            Art.Device -> Canvas(Modifier.size(ArtSize)) { drawDevice() }
-            Art.Remote -> Canvas(Modifier.size(ArtSize)) { drawRemote() }
-            Art.AppGrid -> Canvas(Modifier.size(ArtSize)) { drawAppGrid() }
-            Art.Display -> Canvas(Modifier.size(ArtSize)) { drawDisplay() }
-            Art.Landscape -> Canvas(Modifier.size(ArtSize)) { drawLandscape() }
-            Art.Wifi -> Canvas(Modifier.size(ArtSize)) { drawWifi() }
-            Art.HomeGrid -> Canvas(Modifier.size(ArtSize)) { drawHomeGrid() }
+            is Art.Tile -> Unit
+            else -> IconTile(art, ArtSize * 0.86f)
+        }
+        when (art) {
             is Art.Tile -> Image(
                 art.image,
                 contentDescription = null,
@@ -82,6 +78,7 @@ internal fun SettingsArt(art: Art, modifier: Modifier = Modifier) {
                         clip = true
                     },
             )
+            else -> Unit
         }
     }
 }

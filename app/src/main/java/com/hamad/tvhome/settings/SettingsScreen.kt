@@ -1,5 +1,13 @@
 package com.hamad.tvhome.settings
 
+import com.hamad.tvhome.design.Chevron
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.clickable
 import android.view.SoundEffectConstants
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -70,16 +78,20 @@ import com.hamad.tvhome.design.TvRow
 import com.hamad.tvhome.design.TvSectionHeader
 import com.hamad.tvhome.design.TvType
 
-private val ArtColumnWidth = 480.dp
-private val ListWidth = 446.dp // 430dp rows + room for the focus lift
-private val ListTop = 84.dp
+private val ArtColumnWidth = 350.dp
+private val ListWidth = 560.dp // rows + room for the focus lift
+private val ListTop = 96.dp
 private val TitleTop = 32.dp
 private val FooterTop = 410.dp
-private val FooterWidth = 360.dp
+private val FooterWidth = 290.dp
 private const val PAGE_SLIDE_MS = 340
 private const val FOCUS_ATTEMPTS = 10
 private const val PRESSED_SCALE = 0.97f
-private val ListClipTop = 76.dp // the list viewport starts below the page title
+private val ListClipTop = 80.dp // the list viewport starts below the page title
+private val RowHeight = 46.dp
+private val RowGap = 6.dp
+private val RowShape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+private const val ROW_FOCUS_SCALE = 1.035f
 
 @Composable
 internal fun SettingsScreen(c: SettingsController, onExit: () -> Unit) {
@@ -155,8 +167,9 @@ private fun SettingsPage(dest: Dest, spec: PageSpec, c: SettingsController, clic
                 label = "footer",
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = FooterTop).width(FooterWidth),
             ) { text ->
-                if (text != null) {
-                    BasicText(text, style = SettingsText.Description.copy(textAlign = TextAlign.Center), modifier = Modifier.fillMaxSize())
+                val shown = text ?: spec.caption
+                if (shown != null) {
+                    BasicText(shown, style = SettingsText.Description.copy(textAlign = TextAlign.Center), modifier = Modifier.fillMaxSize())
                 }
             }
         }
@@ -193,11 +206,11 @@ private fun SettingsList(
             state = listState,
             modifier = modifier.padding(top = ListClipTop, end = TvDims.SafeH - 8.dp).width(ListWidth).fillMaxHeight(),
             contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = ListTop - ListClipTop, bottom = 48.dp),
-            verticalArrangement = Arrangement.spacedBy(TvDims.RowGap),
+            verticalArrangement = Arrangement.spacedBy(RowGap),
         ) {
             itemsIndexed(spec.entries, key = { _, e -> e.id }, contentType = { _, e -> e::class }) { index, e ->
                 when (e) {
-                    is Header -> TvSectionHeader(e.text)
+                    is Header -> BasicText(e.text, style = SettingsText.Section, modifier = Modifier.padding(start = 20.dp, top = 18.dp, bottom = 4.dp))
                     is Note -> BasicText(e.text, style = SettingsText.Description, modifier = Modifier.padding(16.dp))
                     is Item -> {
                         val fr = remember { FocusRequester() }
@@ -238,15 +251,46 @@ private fun SettingsRow(item: Item, modifier: Modifier, onFocused: () -> Unit) {
         }
         else -> null
     }
-    TvRow(
-        title = item.title,
-        onClick = item.onClick ?: {},
-        modifier = modifier,
-        value = item.value,
-        chevron = item.chevron,
-        leading = leading,
-        onFocus = onFocused,
-    )
+    SettingsRowView(item, modifier, leading, onFocused)
+}
+
+/** tvOS Settings row at living-room scale: 19sp label, white lifted platter when focused. */
+@Composable
+private fun SettingsRowView(item: Item, modifier: Modifier, leading: (@Composable (Boolean) -> Unit)?, onFocused: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val lift by animateFloatAsState(if (focused) 1f else 0f, TvMotion.focus(), label = "rowLift")
+    val enabled = item.onClick != null || item.checked != null || item.chevron
+    val titleColor = if (focused) TvColors.FocusedLabel else TvColors.Label
+    val valueColor = if (focused) TvColors.FocusedSecondaryLabel else TvColors.SecondaryLabel
+    Row(
+        modifier
+            .fillMaxWidth()
+            .height(RowHeight)
+            .onFocusChanged {
+                focused = it.isFocused
+                if (it.isFocused) onFocused()
+            }
+            .graphicsLayer {
+                val sc = 1f + (ROW_FOCUS_SCALE - 1f) * lift
+                scaleX = sc
+                scaleY = sc
+                shadowElevation = (16f * lift).dp.toPx()
+                shape = RowShape
+                clip = false
+            }
+            .drawBehind {
+                if (lift > 0.01f) drawRoundRect(TvColors.FocusedFill.copy(alpha = lift), cornerRadius = androidx.compose.ui.geometry.CornerRadius(12.dp.toPx()))
+            }
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, enabled = enabled, onClick = item.onClick ?: {})
+            .padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        leading?.invoke(focused)
+        BasicText(item.title, style = SettingsText.Row.copy(color = titleColor), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        item.value?.let { BasicText(it, style = SettingsText.Value.copy(color = valueColor), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        if (item.chevron) Chevron(color = valueColor)
+    }
 }
 
 /** HIG "highlighted" state: a brief press-in while select is held. */
@@ -317,7 +361,10 @@ private suspend fun requestWhenAttached(requesters: Map<String, FocusRequester>,
  * SF Pro Text Regular for descriptive copy (rows keep the kit's Medium labels).
  */
 internal object SettingsText {
-    val PageTitle = TvType.Title3.copy(fontWeight = FontWeight.SemiBold, letterSpacing = (-0.2).sp)
+    val PageTitle = TvType.Title2.copy(fontWeight = FontWeight.SemiBold, letterSpacing = (-0.2).sp)
+    val Section = TvType.Callout.copy(fontWeight = FontWeight.SemiBold, color = TvColors.SecondaryLabel)
+    val Row = TvType.Headline.copy(fontFamily = com.hamad.tvhome.design.TvFonts.Text, fontWeight = FontWeight.Medium, letterSpacing = 0.sp)
+    val Value = TvType.Headline.copy(fontFamily = com.hamad.tvhome.design.TvFonts.Text, fontWeight = FontWeight.Normal, letterSpacing = 0.sp)
     val Description = TvType.Callout.copy(fontWeight = FontWeight.Normal, color = TvColors.SecondaryLabel)
 }
 
