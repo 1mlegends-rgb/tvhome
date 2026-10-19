@@ -10,11 +10,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.hamad.tvhome.home.ShelfCursor
 import com.hamad.tvhome.home.ShelfItem
+import com.hamad.tvhome.home.ShelfNav
 import com.hamad.tvhome.home.ShelfRepository
 import com.hamad.tvhome.home.ShelfSource
 import com.hamad.tvhome.prefs.LauncherPrefs
 import com.hamad.tvhome.prefs.LauncherSettings
+import com.hamad.tvhome.search.SearchActivity
 import com.hamad.tvhome.tmdb.TmdbClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -41,8 +44,10 @@ data class HomeState(
     val focus: Int = 0,
     /** Which dock (top row) app the Top Shelf is showing. */
     val shelfIndex: Int = 0,
-    /** Which of that app's Top Shelf items is showing. */
-    val shelfPage: Int = 0,
+    /** Which Top Shelf item each app is showing, by app key — remembered per app. */
+    val shelfPages: Map<String, Int> = emptyMap(),
+    /** [ShelfNav.PLAY] or [ShelfNav.MORE_INFO] while the shelf is focused. */
+    val shelfButton: Int = ShelfNav.PLAY,
     /** Direction of the last manual page change (−1/+1); 0 for autoplay and app switches. */
     val pageDir: Int = 0,
     /** Top Shelf content by package name. Apps absent here show the ambient field. */
@@ -60,7 +65,15 @@ data class HomeState(
     val dockFocused: Boolean get() = focus in 0 until dockCount
     val shelfApp: AppEntry? get() = apps.getOrNull(shelfIndex)
     val shelfItems: List<ShelfItem> get() = shelfApp?.let { shelf[it.packageName] }.orEmpty()
-    val shelfItem: ShelfItem? get() = shelfItems.getOrNull(shelfPage.coerceAtMost(shelfItems.size - 1))
+    val shelfPage: Int
+        get() = shelfApp?.let { shelfPages[it.key] }?.coerceIn(0, (shelfItems.size - 1).coerceAtLeast(0)) ?: 0
+    val shelfItem: ShelfItem? get() = shelfItems.getOrNull(shelfPage)
+    val shelfAttribution: String?
+        get() = shelfApp?.let { ShelfSource.forPackage(it.packageName)?.attribution(it.label) }
+
+    /** The same state showing [page] for the current shelf app. */
+    fun withPage(page: Int, dir: Int = 0): HomeState =
+        shelfApp?.let { copy(shelfPages = shelfPages + (it.key to page), pageDir = dir) } ?: this
 
     companion object { const val SHELF = -1 }
 }
@@ -119,7 +132,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         if (next.hiddenApps != prev.hiddenApps) publishApps()
         if (next.contentRegion != shelfRegion) {
             shelfRegion = next.contentRegion
-            state = state.copy(shelf = emptyMap(), shelfPage = 0)
+            state = state.copy(shelf = emptyMap(), shelfPages = emptyMap())
             loadShelves()
         }
     }
@@ -139,7 +152,6 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             apps = visible,
             focus = if (keepShelf) HomeState.SHELF else focus,
             shelfIndex = shelfIndex,
-            shelfPage = if (visible.getOrNull(shelfIndex)?.key == s.shelfApp?.key) s.shelfPage else 0,
             editing = s.editing && visible.isNotEmpty(),
             sheet = null,
             loaded = true,
@@ -170,7 +182,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         val s = state
         val count = s.shelfItems.size
         if (count < 2) return
-        state = s.copy(shelfPage = (s.shelfPage + 1) % count, pageDir = 0)
+        state = s.withPage((s.shelfPage + 1) % count)
     }
 
     // ── Input ────────────────────────────────────────────────────────────────────────────────
@@ -190,8 +202,22 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         when {
             s.sheet != null -> runSheetAction(s.sheet.actions[s.sheet.focus], s.sheet.app)
             s.editing -> finishEditing()
-            s.focus == HomeState.SHELF -> s.shelfApp?.let(::launch)
-            else -> s.apps.getOrNull(s.focus)?.let(::launch)
+            s.focus == HomeState.SHELF -> selectShelfButton(s)
+            else -> s.apps.getOrNull(s.focus)?.let { launch(it.key, it.launchIntent) }
+        }
+    }
+
+    private fun selectShelfButton(s: HomeState) {
+        val app = s.shelfApp ?: return
+        val item = s.shelfItem
+        if (s.shelfButton == ShelfNav.MORE_INFO && item != null) {
+            val info = Intent(getApplication(), SearchActivity::class.java)
+                .putExtra(EXTRA_TMDB_ID, item.tmdbId)
+                .putExtra(EXTRA_TMDB_TYPE, item.mediaType)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            launch(KEY_MORE_INFO, info)
+        } else {
+            launch(KEY_PLAY, app.launchIntent)
         }
     }
 
@@ -238,11 +264,11 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         if (dir == Dir.Up && s.focusedRow == 0) {
             val withShelf = s.copy(shelfIndex = s.focus)
             if (withShelf.shelfItems.isEmpty()) return nudge(dir)
-            return focusTo(withShelf.copy(focus = HomeState.SHELF, pageDir = 0))
+            return focusTo(withShelf.copy(focus = HomeState.SHELF, shelfButton = ShelfNav.PLAY, pageDir = 0))
         }
         val next = GridNav.move(s.focus, s.apps.size, dir) ?: return nudge(dir)
         val shelf = if (next < GridNav.COLUMNS) next else s.shelfIndex
-        focusTo(s.copy(focus = next, shelfIndex = shelf, shelfPage = if (shelf == s.shelfIndex) s.shelfPage else 0, pageDir = 0))
+        focusTo(s.copy(focus = next, shelfIndex = shelf, pageDir = 0))
     }
 
     private fun moveInShelf(dir: Dir) {
@@ -251,8 +277,10 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             Dir.Down -> focusTo(s.copy(focus = s.shelfIndex))
             Dir.Up -> nudge(dir)
             Dir.Left, Dir.Right -> {
-                val next = s.shelfPage + dir.dx
-                if (next in s.shelfItems.indices) focusTo(s.copy(shelfPage = next, pageDir = dir.dx)) else nudge(dir)
+                val next = ShelfNav.move(ShelfCursor(s.shelfPage, s.shelfButton), s.shelfItems.size, dir)
+                    ?: return nudge(dir)
+                val moved = if (next.page != s.shelfPage) s.withPage(next.page, dir.dx) else s
+                focusTo(moved.copy(shelfButton = next.button))
             }
         }
     }
@@ -262,7 +290,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         val target = GridNav.move(s.focus, s.apps.size, dir) ?: return nudge(dir)
         val apps = GridNav.reorder(s.apps, s.focus, target)
         val shelf = if (target < GridNav.COLUMNS) target else s.shelfIndex.coerceAtMost(apps.size - 1)
-        focusTo(s.copy(apps = apps, focus = target, shelfIndex = shelf, shelfPage = 0, pageDir = 0))
+        focusTo(s.copy(apps = apps, focus = target, shelfIndex = shelf, pageDir = 0))
     }
 
     private fun moveSheet(dir: Dir) {
@@ -331,18 +359,23 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun launch(app: AppEntry) {
-        state = state.copy(pressedKey = app.key)
+    /** tvOS's highlighted state: the target dips and brightens for a beat, then the app opens. */
+    private fun launch(pressKey: String, intent: Intent) {
+        state = state.copy(pressedKey = pressKey)
         viewModelScope.launch {
             delay(PRESS_MS)
-            _intents.emit(app.launchIntent)
+            _intents.emit(intent)
             delay(PRESS_MS)
-            if (state.pressedKey == app.key) state = state.copy(pressedKey = null)
+            if (state.pressedKey == pressKey) state = state.copy(pressedKey = null)
         }
     }
 
-    private companion object {
-        const val TAG = "TvHome"
-        const val PRESS_MS = 130L
+    companion object {
+        const val KEY_PLAY = "shelf:play"
+        const val KEY_MORE_INFO = "shelf:info"
+        const val EXTRA_TMDB_ID = "tmdb_id"
+        const val EXTRA_TMDB_TYPE = "tmdb_type"
+        private const val TAG = "TvHome"
+        private const val PRESS_MS = 150L
     }
 }
