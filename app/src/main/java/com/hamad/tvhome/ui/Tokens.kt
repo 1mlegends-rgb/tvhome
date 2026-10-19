@@ -3,42 +3,49 @@ package com.hamad.tvhome.ui
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.hamad.tvhome.design.TvColors
 import com.hamad.tvhome.design.TvDims
 import com.hamad.tvhome.design.TvMotion
 import com.hamad.tvhome.design.TvType
+import com.hamad.tvhome.design.TvType.emphasized
 import com.hamad.tvhome.design.TvType.overArt
 
 /**
- * Home-screen geometry, measured on tvOS at 1920×1080 and halved into dp (the box is 320 dpi,
- * so 1 dp = 2 px). Five 5:3 icons per row fill the 90 pt safe area; colours, type and springs
- * come from the shared design kit.
+ * Home-screen geometry per HIG › Layout (five-column grid), halved into dp (the box is 320 dpi,
+ * so 1 dp = 2 px): 320 pt icons with 40 pt gutters exactly fill the 80 pt side safe area
+ * (5·160 + 4·20 + 2·40 = 960 dp), rows ≥100 pt apart. Colours, type and springs come from the
+ * shared design kit.
  */
 object Dims {
-    val TileW: Dp = 154.dp
-    val TileH: Dp = 92.dp
-    val Gap: Dp = 24.dp
-    val GridLeft: Dp = 47.dp
-    val Pitch: Dp = 138.dp
-    val DockTop: Dp = 392.dp
-    val ScrolledTop: Dp = 46.dp
-    val TileRadius: Dp = 8.dp
-    val LabelTop: Dp = 14.dp
+    val TileW: Dp = TvDims.IconW
+    val TileH: Dp = TvDims.IconH
+    val Gap: Dp = TvDims.GridHSpacing
+    val GridLeft: Dp = TvDims.SafeH
+    val TileRadius: Dp = TvDims.IconCorner
+
+    /** The label sits inside the HIG's vertical spacing, clear of the focused icon's growth. */
+    val LabelTop: Dp = 15.dp
+    val Pitch: Dp = TvDims.IconH + TvDims.GridVSpacing
+
+    /** Dock icon top: focused label bottom lands on the 60 pt bottom safe-area line. */
+    val DockTop: Dp = 380.dp
+    val ScrolledTop: Dp = TvDims.SafeV + 4.dp
 
     /** How far the dock sinks out of view while the Top Shelf itself is focused. */
-    val ShelfDrop: Dp = 160.dp
+    val ShelfDrop: Dp = 170.dp
 
     /** Rows below the dock wait fully off-screen until focus scrolls into the grid. */
-    val LowerRowsDrop: Dp = 70.dp
+    val LowerRowsDrop: Dp = 40.dp
 
-    val ShelfLeft: Dp = GridLeft
-    val ShelfBottom: Dp = 62.dp
+    val ShelfLeft: Dp = TvDims.SafeH
+    val ShelfBottom: Dp = 56.dp
     val LogoW: Dp = 300.dp
-    val LogoH: Dp = 110.dp
+    val LogoH: Dp = 96.dp
+    val ButtonGap: Dp = 16.dp
+    val ButtonPadH: Dp = 24.dp
+    val PlayGlyph: Dp = 10.dp
     val DotsBottom: Dp = TvDims.SafeV
     val Dot: Dp = 5.dp
     val DotGap: Dp = 7.dp
@@ -83,12 +90,15 @@ object Palette {
     val Dot = Color(0x59FFFFFF)
 }
 
+/** Every home-screen string uses a HIG tvOS text style unchanged; only colour/shadow vary. */
 object Type {
-    val ShelfTitle = TvType.Title1.overArt()
-    val ShelfMeta = TvType.Caption1.copy(fontWeight = FontWeight.SemiBold, color = Color(0xCCFFFFFF)).overArt()
-    val ShelfOverview = TvType.Callout.copy(color = Color(0xE6FFFFFF), lineHeight = 21.sp).overArt()
+    val ShelfAttribution = TvType.Caption1.overArt()
+    val ShelfTitle = TvType.Title1.emphasized().overArt()
+    val ShelfMeta = TvType.Caption1.copy(color = TvColors.Label).overArt()
+    val ShelfOverview = TvType.Callout.overArt()
+    val ShelfButton = TvType.Body
     val TileLabel = TvType.Caption1.copy(color = TvColors.Label).overArt()
     val SheetTitle = TvType.Title3
-    val SheetButton = TvType.Body.copy(fontSize = 15.sp)
+    val SheetButton = TvType.Body
     val Hint = TvType.Caption2.copy(color = Palette.Hint).overArt()
 }
