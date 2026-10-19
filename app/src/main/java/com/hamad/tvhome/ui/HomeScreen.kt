@@ -1,5 +1,7 @@
 package com.hamad.tvhome.ui
 
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
 import android.view.KeyEvent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -47,6 +49,9 @@ private const val IDLE_AFTER_MS = 4_000L
 private const val IDLE_IN_MS = 700
 private const val IDLE_OUT_MS = 140
 private const val PREFETCH_SETTLE_MS = 80L
+/** Build the other tabs after Home is on screen, one per step, so startup never stalls. */
+private const val PREWARM_AFTER_MS = 1_500L
+private const val PREWARM_STEP_MS = 400L
 
 /**
  * Home, Apple TV app style: full-bleed hero behind a floating Liquid Glass tab bar, rows below.
@@ -61,13 +66,24 @@ fun HomeScreen(vm: HomeViewModel) {
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
     val (shownTab, contentAlpha) = rememberShownTab(vm)
-    val page = vm.pages.getValue(shownTab)
-    val target = remember(page) { derivedStateOf { scrollTarget(vm, page) } }
-    val scroll = remember(page) { Animatable(target.value) }
-    LaunchedEffect(page) {
-        snapshotFlow { target.value }.collectLatest { scroll.animateTo(it, Motion.scroll()) }
+    // Every tab page stays composed once built; a switch only changes which layer is drawn, so it
+    // never composes a whole page (hero + rows + images) inside one frame.
+    val composed = remember { mutableStateListOf(vm.tab) }
+    if (shownTab !in composed) composed += shownTab
+    LaunchedEffect(Unit) {
+        delay(PREWARM_AFTER_MS)
+        vm.prefetchTabs()
+        for (t in Tab.entries) {
+            if (t !in composed) {
+                composed += t
+                delay(PREWARM_STEP_MS)
+            }
+        }
     }
-    val barShown = remember(page) { derivedStateOf { page.row == Zone.BAR || target.value == 0f } }
+    val scrolls = remember { Tab.entries.associateWith { Animatable(0f) } }
+    val page = vm.pages.getValue(shownTab)
+    val scroll = scrolls.getValue(shownTab)
+    val barShown = remember(page) { derivedStateOf { page.row == Zone.BAR || scrollTarget(vm, page) == 0f } }
     val idle = rememberIdle(vm)
 
     Box(
@@ -79,18 +95,10 @@ fun HomeScreen(vm: HomeViewModel) {
     ) {
         HeroBackdrop(page, scroll)
         CompositionLocalProvider(LocalIdle provides { idle.value }) {
-                Box(
-                Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        alpha = contentAlpha.value
-                        compositingStrategy = CompositingStrategy.ModulateAlpha
-                    },
-            ) {
-                if (page.tab == Tab.Apps) {
-                    AppsGrid(vm, page, { scroll.value })
-                } else {
-                    PageContent(vm, page, { scroll.value })
+            for (tab in Tab.entries) {
+                if (tab !in composed) continue
+                key(tab) {
+                    PageLayer(vm, vm.pages.getValue(tab), scrolls.getValue(tab), { tab == shownTab }, contentAlpha)
                 }
             }
         }
@@ -98,6 +106,36 @@ fun HomeScreen(vm: HomeViewModel) {
         EditHint(vm)
         ActionSheetOverlay(vm.sheet)
         HeroAutoplay(vm, page)
+    }
+}
+
+/** One tab's content. Hidden layers keep their composition but draw nothing (alpha 0 is skipped). */
+@Composable
+private fun PageLayer(
+    vm: HomeViewModel,
+    page: TabPage,
+    scroll: Animatable<Float, *>,
+    visible: () -> Boolean,
+    contentAlpha: Animatable<Float, *>,
+) {
+    val target = remember(page) { derivedStateOf { scrollTarget(vm, page) } }
+    LaunchedEffect(page) {
+        scroll.snapTo(target.value)
+        snapshotFlow { target.value }.collectLatest { scroll.animateTo(it, Motion.scroll()) }
+    }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                alpha = if (visible()) contentAlpha.value else 0f
+                compositingStrategy = CompositingStrategy.ModulateAlpha
+            },
+    ) {
+        if (page.tab == Tab.Apps) {
+            AppsGrid(vm, page, { scroll.value })
+        } else {
+            PageContent(vm, page, { scroll.value })
+        }
     }
 }
 

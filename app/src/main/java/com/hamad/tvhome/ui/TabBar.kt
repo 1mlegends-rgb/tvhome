@@ -1,5 +1,11 @@
 package com.hamad.tvhome.ui
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.runtime.mutableStateMapOf
 import android.text.format.DateFormat
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.Animatable
@@ -74,19 +80,25 @@ fun TabBar(vm: HomeViewModel, shown: State<Boolean>, modifier: Modifier = Modifi
                 translationY = -(1f - reveal.value) * BAR_SLIDE_DP.dp.toPx()
             },
     ) {
-        Row(
+        val bounds = remember { mutableStateMapOf<Int, Pair<Float, Float>>() }
+        Box(
             Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = HomeDims.BarTop)
                 .height(HomeDims.BarH)
                 .liquidGlass(TvShapes.Capsule, intensity = 0.35f)
                 .padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            contentAlignment = Alignment.CenterStart,
         ) {
-            BarGlyph(vm, Bar.SEARCH, R.drawable.ic_search)
-            for (tab in Tab.entries) BarTab(vm, tab)
-            BarGlyph(vm, Bar.SETTINGS, R.drawable.ic_gear)
+            SlidingPills(vm, bounds, Modifier.matchParentSize())
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                BarGlyph(vm, Bar.SEARCH, R.drawable.ic_search, bounds)
+                for (tab in Tab.entries) BarTab(vm, tab, bounds)
+                BarGlyph(vm, Bar.SETTINGS, R.drawable.ic_gear, bounds)
+            }
         }
         Clock(Modifier.align(Alignment.TopEnd).padding(top = HomeDims.BarTop + 8.dp, end = TvDims.SafeH))
     }
@@ -107,7 +119,7 @@ private fun barFocus(vm: HomeViewModel): State<Float> {
 }
 
 @Composable
-private fun BarTab(vm: HomeViewModel, tab: Tab) {
+private fun BarTab(vm: HomeViewModel, tab: Tab, bounds: MutableMap<Int, Pair<Float, Float>>) {
     val slot = Bar.slotOf(tab)
     val focus by slotFocus(vm, slot)
     val isCurrent by remember(tab) { derivedStateOf { vm.tab == tab } }
@@ -117,7 +129,8 @@ private fun BarTab(vm: HomeViewModel, tab: Tab) {
     Box(
         Modifier
             .height(HomeDims.BarItemH)
-            .barPill({ focus }, { selected }, { bar }, pressed)
+            .reportBounds(slot, bounds)
+            .pressDip(pressed)
             .padding(horizontal = HomeDims.BarItemPadH),
         contentAlignment = Alignment.Center,
     ) {
@@ -125,20 +138,21 @@ private fun BarTab(vm: HomeViewModel, tab: Tab) {
             tab.label,
             style = Type.BarLabel,
             maxLines = 1,
-            color = { labelColor(focus, selected) },
+            color = { labelColor(focus * bar, selected) },
         )
     }
 }
 
 @Composable
-private fun BarGlyph(vm: HomeViewModel, slot: Int, @DrawableRes icon: Int) {
+private fun BarGlyph(vm: HomeViewModel, slot: Int, @DrawableRes icon: Int, bounds: MutableMap<Int, Pair<Float, Float>>) {
     val focus by slotFocus(vm, slot)
     val pressed = vm.pressedKey == HomeViewModel.barKey(slot)
     val painter = painterResource(icon)
     Box(
         Modifier
             .size(HomeDims.BarItemH)
-            .barPill({ focus }, { 0f }, { 0f }, pressed)
+            .reportBounds(slot, bounds)
+            .pressDip(pressed)
             .drawBehind {
                 val g = HomeDims.BarGlyph.toPx()
                 translate((size.width - g) / 2, (size.height - g) / 2) {
@@ -153,28 +167,52 @@ private fun labelColor(focus: Float, selected: Float): Color =
     lerp(TvColors.SecondaryLabel, TvColors.FocusedLabel, maxOf(focus, selected).coerceIn(0f, 1f))
 
 /**
- * HIG tab bar states, drawn rather than laid out: the bar is translucent and only the selected
- * tab is opaque; the focused item is a white pill that lifts; with the bar focused, the selected
- * tab casts a shadow.
+ * HIG tab bar states with one moving highlight, as on Apple TV: the selected tab's opaque pill and
+ * the white focus pill each spring from item to item instead of fading in place. Both are drawn in
+ * the bar's draw phase from animated bounds, so a move never relayouts the bar.
  */
-private fun Modifier.barPill(focus: () -> Float, selected: () -> Float, barFocused: () -> Float, pressed: Boolean): Modifier = this
-    .graphicsLayer {
-        val f = focus()
-        val s = 1f + (TvMotion.BUTTON_FOCUS_SCALE - 1f) * f
-        val dip = if (pressed) PRESS_DIP else 1f
-        scaleX = s * dip
-        scaleY = s * dip
-        shadowElevation = (10f * maxOf(f, selected() * barFocused())).dp.toPx()
-        shape = TvShapes.Capsule
-        clip = false
+@Composable
+private fun SlidingPills(vm: HomeViewModel, bounds: Map<Int, Pair<Float, Float>>, modifier: Modifier) {
+    val focusSlot = vm.barSlot
+    val selectedSlot = Bar.slotOf(vm.tab)
+    val barFocused by barFocus(vm)
+    val fx = animateFloatAsState(bounds[focusSlot]?.first ?: 0f, PILL_SPRING, label = "fx")
+    val fw = animateFloatAsState(bounds[focusSlot]?.second ?: 0f, PILL_SPRING, label = "fw")
+    val sx = animateFloatAsState(bounds[selectedSlot]?.first ?: 0f, PILL_SPRING, label = "sx")
+    val sw = animateFloatAsState(bounds[selectedSlot]?.second ?: 0f, PILL_SPRING, label = "sw")
+    val itemH = HomeDims.BarItemH
+    Box(
+        modifier
+            .drawBehind {
+                val h = itemH.toPx()
+                val top = (size.height - h) / 2
+                val r = CornerRadius(h / 2)
+                if (sw.value > 0f) {
+                    drawRoundRect(Palette.SelectedTab, Offset(sx.value, top), Size(sw.value, h), r)
+                }
+                if (fw.value > 0f && barFocused > 0.01f) {
+                    // Soft lift under the focus pill, then the pill itself.
+                    drawRoundRect(Color.Black.copy(alpha = 0.18f * barFocused), Offset(fx.value, top + 2.dp.toPx()), Size(fw.value, h), r)
+                    drawRoundRect(TvColors.FocusedFill, Offset(fx.value, top), Size(fw.value, h), r, alpha = barFocused)
+                }
+            },
+    )
+}
+
+private fun Modifier.reportBounds(slot: Int, bounds: MutableMap<Int, Pair<Float, Float>>): Modifier =
+    onPlaced { c ->
+        val x = c.positionInParent().x
+        val w = c.size.width.toFloat()
+        if (bounds[slot] != x to w) bounds[slot] = x to w
     }
-    .drawBehind {
-        val r = CornerRadius(size.height / 2)
-        val sel = selected()
-        if (sel > 0.01f) drawRoundRect(Palette.SelectedTab, cornerRadius = r, alpha = sel)
-        val f = focus()
-        if (f > 0.01f) drawRoundRect(TvColors.FocusedFill, cornerRadius = r, alpha = f.coerceIn(0f, 1f))
-    }
+
+private fun Modifier.pressDip(pressed: Boolean): Modifier = graphicsLayer {
+    val dip = if (pressed) PRESS_DIP else 1f
+    scaleX = dip
+    scaleY = dip
+}
+
+private val PILL_SPRING = spring<Float>(dampingRatio = 0.86f, stiffness = 520f)
 
 /** The time, top-right, ticking once a minute (one frame per minute, nothing in between). */
 @Composable

@@ -157,6 +157,11 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun isEmpty(p: TabPage) = p.tab != Tab.Apps && p.hero.isEmpty() && p.rows.isEmpty()
 
+    /** Loads every content tab up front so switching tabs never waits on the network. */
+    fun prefetchTabs() {
+        for (t in Tab.entries) ensureContent(t)
+    }
+
     private fun ensureContent(tab: Tab, force: Boolean = false) {
         if (tab == Tab.Apps) return
         val p = pages.getValue(tab)
