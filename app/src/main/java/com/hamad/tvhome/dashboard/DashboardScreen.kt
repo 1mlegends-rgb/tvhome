@@ -1,71 +1,86 @@
 package com.hamad.tvhome.dashboard
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hamad.tvhome.R
+import com.hamad.tvhome.design.TvDims
 
-object DashColors {
-    val BgTop = Color(0xFF0C1438)
-    val BgBottom = Color(0xFF070B22)
-    val Card = Color(0xFF131D4C)
-    val CardFill = Color(0xC7131D4C)
-    val Border = Color(0xB33A56B2)
-    val Highlight = Color(0xFF0B1235)
-    val HighlightBorder = Color(0xB3E6ECFF)
-    val Label = Color(0xFFF3F6FF)
-    val Secondary = Color(0xFFAAB6DF)
-    val Accent = Color(0xFF9DC1FF)
-    val Bitcoin = Color(0xFFF7931A)
-    val Down = Color(0xFFF0629B)
-    val Up = Color(0xFF4CD98A)
+/*
+ * Direction: photographic ground (Apple Aerial video) · no cards, no borders · white-only type with
+ * opacity hierarchy (100 / 78 / 58 / 40) · one dominant element = next prayer · the day as a quiet
+ * timeline · colour only where semantic (SF-Symbol weather, price up/down) · zero motion.
+ */
+private object Ink {
+    val Primary = Color.White
+    val Secondary = Color.White.copy(alpha = 0.78f)
+    val Tertiary = Color.White.copy(alpha = 0.58f)
+    val Passed = Color.White.copy(alpha = 0.40f)
+    val Track = Color.White.copy(alpha = 0.22f)
+    val Up = Color(0xFF30D158)
+    val Down = Color(0xFFFF453A)
+    val ScrimTop = Color.Black.copy(alpha = 0.55f)
+    val ScrimBottom = Color.Black.copy(alpha = 0.78f)
+    val TextShadow = Shadow(Color.Black.copy(alpha = 0.45f), Offset(0f, 2f), 12f)
 }
 
-private object DashFonts {
+private object Faces {
     val Arabic = FontFamily(
         Font(R.font.sf_arabic_regular, FontWeight.Normal),
         Font(R.font.sf_arabic_medium, FontWeight.Medium),
         Font(R.font.sf_arabic_semibold, FontWeight.SemiBold),
         Font(R.font.sf_arabic_bold, FontWeight.Bold),
     )
-    val Rounded = FontFamily(Font(R.font.sf_arabic_rounded_semibold, FontWeight.SemiBold))
 }
 
-private fun text(size: TextUnit, weight: FontWeight = FontWeight.Medium, color: Color = DashColors.Label, family: FontFamily = DashFonts.Arabic) =
-    TextStyle(fontFamily = family, fontWeight = weight, fontSize = size, color = color, textAlign = TextAlign.Start)
+private fun type(size: TextUnit, weight: FontWeight, color: Color) =
+    TextStyle(fontFamily = Faces.Arabic, fontWeight = weight, fontSize = size, color = color, shadow = Ink.TextShadow)
+
+private object Scale {
+    val Hero = type(64.sp, FontWeight.Bold, Ink.Primary)
+    val HeroTime = type(30.sp, FontWeight.Medium, Ink.Secondary)
+    val HeroCountdown = type(22.sp, FontWeight.Medium, Ink.Primary)
+    val Eyebrow = type(14.sp, FontWeight.Medium, Ink.Tertiary)
+    val Clock = type(44.sp, FontWeight.Medium, Ink.Primary)
+    val Meridiem = type(18.sp, FontWeight.Medium, Ink.Secondary)
+    val Line = type(15.sp, FontWeight.Medium, Ink.Secondary)
+    val Small = type(13.sp, FontWeight.Medium, Ink.Tertiary)
+    val Temp = type(44.sp, FontWeight.Normal, Ink.Primary)
+    val City = type(15.sp, FontWeight.SemiBold, Ink.Secondary)
+    val DayName = type(11.5.sp, FontWeight.Medium, Ink.Tertiary)
+    val DayTemp = type(13.sp, FontWeight.SemiBold, Ink.Secondary)
+    val SlotName = type(14.sp, FontWeight.Medium, Ink.Secondary)
+    val SlotTime = type(18.sp, FontWeight.SemiBold, Ink.Secondary)
+}
 
 data class DashboardState(
     val moment: DashboardMoment,
@@ -75,31 +90,27 @@ data class DashboardState(
     val shift: Pair<Dp, Dp>,
 )
 
-/** The idle dashboard: clock + dates, next prayer, the five prayers, two-city weekly weather. RTL. */
+/** Prayer-times idle screen drawn over the Aerial video. RTL, Arabic-Indic digits. */
 @Composable
 fun DashboardScreen(state: DashboardState) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(Brush.verticalGradient(listOf(DashColors.BgTop, DashColors.BgBottom))),
-        ) {
-            Column(
-                Modifier
-                    .fillMaxSize()
+        Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxWidth().height(220.dp).background(Brush.verticalGradient(listOf(Ink.ScrimTop, Color.Transparent))))
+            Box(
+                Modifier.fillMaxWidth().height(340.dp).align(Alignment.BottomCenter)
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Ink.ScrimBottom))),
+            )
+            Box(
+                Modifier.fillMaxSize()
                     .offset(state.shift.first, state.shift.second)
-                    .padding(horizontal = 48.dp, vertical = 30.dp),
-                verticalArrangement = Arrangement.Center,
+                    .padding(horizontal = TvDims.SafeH, vertical = TvDims.SafeV),
             ) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                    ClockBlock(state, Modifier.weight(1f).padding(top = 16.dp))
-                    NextPrayerCard(state.moment, Modifier.width(300.dp))
-                }
-                Spacer(Modifier.height(26.dp))
-                PrayerRow(state.moment)
-                if (state.weather.isNotEmpty()) {
-                    Spacer(Modifier.height(16.dp))
-                    WeatherCard(state.weather)
+                ClockAndDates(state, Modifier.align(Alignment.TopStart))
+                if (state.weather.isNotEmpty()) Weather(state.weather, Modifier.align(Alignment.TopEnd))
+                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()) {
+                    NextPrayer(state.moment)
+                    Spacer(Modifier.height(30.dp))
+                    DayTimeline(state.moment)
                 }
             }
         }
@@ -107,150 +118,165 @@ fun DashboardScreen(state: DashboardState) {
 }
 
 @Composable
-private fun GlassCard(modifier: Modifier = Modifier, padding: Dp = 18.dp, content: @Composable BoxScope.() -> Unit) {
-    val shape = RoundedCornerShape(18.dp)
-    Box(
-        modifier
-            .background(DashColors.CardFill, shape)
-            .border(1.dp, DashColors.Border, shape)
-            .padding(padding),
-        content = content,
-    )
-}
-
-@Composable
-private fun ClockBlock(state: DashboardState, modifier: Modifier) {
+private fun ClockAndDates(state: DashboardState, modifier: Modifier) {
     val m = state.moment
-    Column(modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.Bottom) {
-            BasicText(ArabicText.clock(m.minuteOfDay), style = text(70.sp, FontWeight.Normal, DashColors.Accent))
-            Spacer(Modifier.width(10.dp))
-            BasicText(ArabicText.meridiem(m.minuteOfDay), style = text(22.sp, FontWeight.Medium, DashColors.Accent), modifier = Modifier.padding(bottom = 14.dp))
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            GlyphIcon(Glyph.Calendar, 16.dp, DashColors.Secondary)
+            BasicText(ArabicText.clock(m.minuteOfDay), style = Scale.Clock)
             Spacer(Modifier.width(8.dp))
-            val dates = if (m.hijri.isNotEmpty()) "${m.gregorian}  •  ${m.hijri}" else m.gregorian
-            BasicText(dates, style = text(16.sp))
+            BasicText(ArabicText.meridiem(m.minuteOfDay), style = Scale.Meridiem, modifier = Modifier.padding(bottom = 8.dp))
         }
-        Spacer(Modifier.height(10.dp))
+        BasicText(if (m.hijri.isNotEmpty()) "${m.gregorian} · ${m.hijri}" else m.gregorian, style = Scale.Line)
         Row(verticalAlignment = Alignment.CenterVertically) {
             m.daysToRamadan?.let {
-                GlyphIcon(Glyph.Crescent, 16.dp, DashColors.Label)
-                Spacer(Modifier.width(8.dp))
-                BasicText("باقي على رمضان ${ArabicText.days(it)}", style = text(14.sp))
-                Spacer(Modifier.width(30.dp))
+                BasicText("رمضان بعد ${ArabicText.days(it)}", style = Scale.Small)
             }
-            state.btc?.let { BitcoinLine(it) }
+            state.btc?.let { q ->
+                if (m.daysToRamadan != null) BasicText("   ·   ", style = Scale.Small)
+                BasicText("بيتكوين ${ArabicText.grouped(q.usd)} $", style = Scale.Small)
+                Spacer(Modifier.width(6.dp))
+                val down = q.change24h < 0
+                BasicText(
+                    "${if (down) "▼" else "▲"} ${ArabicText.oneDecimal(q.change24h)}٪",
+                    style = Scale.Small.copy(color = if (down) Ink.Down else Ink.Up),
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun BitcoinLine(q: BtcQuote) {
-    Box(Modifier.size(16.dp).background(DashColors.Bitcoin, CircleShape), contentAlignment = Alignment.Center) {
-        BasicText("₿", style = text(10.sp, FontWeight.Bold, Color.White))
-    }
-    Spacer(Modifier.width(8.dp))
-    BasicText("${ArabicText.grouped(q.usd)} دولار", style = text(14.sp))
-    Spacer(Modifier.width(10.dp))
-    val down = q.change24h < 0
-    BasicText(
-        "${if (down) "▼" else "▲"} ${ArabicText.oneDecimal(q.change24h)}٪",
-        style = text(13.sp, FontWeight.Medium, if (down) DashColors.Down else DashColors.Up),
-    )
-}
-
-@Composable
-private fun NextPrayerCard(m: DashboardMoment, modifier: Modifier) {
-    GlassCard(modifier, padding = 18.dp) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun Weather(cities: List<CityWeather>, modifier: Modifier) {
+    val main = cities.first()
+    val today = main.days.firstOrNull()
+    Column(modifier, horizontalAlignment = Alignment.End) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BasicText(main.name, style = Scale.City)
+            Spacer(Modifier.width(12.dp))
+            GlyphIcon(weatherGlyph(main.currentCode, main.isDay), 30.dp)
+            Spacer(Modifier.width(8.dp))
+            BasicText(ArabicText.degrees(main.currentTemp), style = Scale.Temp)
+        }
+        BasicText(
+            buildString {
+                append(condition(main.currentCode))
+                if (today != null) append("  ·  العظمى ${ArabicText.degrees(today.max)}  الصغرى ${ArabicText.degrees(today.min)}")
+            },
+            style = Scale.Small,
+        )
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+            main.days.drop(1).take(FORECAST_DAYS).forEach { d ->
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    BasicText(ArabicText.weekday(d.weekday), style = Scale.DayName)
+                    GlyphIcon(weatherGlyph(d.code), 18.dp)
+                    BasicText(ArabicText.degrees(d.max), style = Scale.DayTemp)
+                }
+            }
+        }
+        cities.drop(1).forEach { c ->
+            Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                GlyphIcon(Glyph.Mosque, 17.dp, DashColors.Secondary)
+                BasicText(c.name, style = Scale.Small)
                 Spacer(Modifier.width(8.dp))
-                BasicText("الصلاة القادمة", style = text(13.sp, FontWeight.Medium, DashColors.Secondary))
-            }
-            Row(verticalAlignment = Alignment.Bottom) {
-                BasicText(m.next.arabic, style = text(27.sp, FontWeight.Bold))
-                Spacer(Modifier.width(14.dp))
-                BasicText(ArabicText.time(m.nextAt), style = text(18.sp, FontWeight.Medium, DashColors.Label.copy(alpha = 0.85f)), modifier = Modifier.padding(bottom = 4.dp))
-            }
-            BasicText("باقي ${ArabicText.duration(m.minutesToNext)}", style = text(19.sp, FontWeight.SemiBold, DashColors.Accent))
-            BasicText("مضى على ${m.previous.arabic} ${ArabicText.duration(m.minutesSincePrevious)}", style = text(12.5.sp, FontWeight.Normal, DashColors.Secondary))
-        }
-    }
-}
-
-@Composable
-private fun PrayerRow(m: DashboardMoment) {
-    GlassCard(Modifier.fillMaxWidth().height(92.dp), padding = 8.dp) {
-        Row(Modifier.fillMaxSize()) {
-            m.prayers.forEach { (prayer, at) ->
-                val active = prayer == m.next
-                PrayerCell(prayer.arabic, ArabicText.time(at), active)
+                GlyphIcon(weatherGlyph(c.currentCode, c.isDay), 15.dp)
+                Spacer(Modifier.width(6.dp))
+                BasicText(ArabicText.degrees(c.currentTemp), style = Scale.DayTemp)
             }
         }
     }
 }
 
 @Composable
-private fun RowScope.PrayerCell(name: String, time: String, active: Boolean) {
-    val shape = RoundedCornerShape(14.dp)
-    Box(
-        Modifier
-            .weight(1f)
-            .fillMaxSize()
-            .then(if (active) Modifier.background(DashColors.Highlight, shape).border(1.5.dp, DashColors.HighlightBorder, shape) else Modifier),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            BasicText(name, style = text(14.5.sp, FontWeight.Medium, DashColors.Label.copy(alpha = 0.88f)))
-            BasicText(time, style = text(21.sp, FontWeight.SemiBold))
+private fun NextPrayer(m: DashboardMoment) {
+    Column {
+        BasicText("الصلاة القادمة", style = Scale.Eyebrow)
+        Row(verticalAlignment = Alignment.Bottom) {
+            BasicText(m.next.arabic, style = Scale.Hero)
+            Spacer(Modifier.width(20.dp))
+            BasicText(ArabicText.time(m.nextAt), style = Scale.HeroTime, modifier = Modifier.padding(bottom = 14.dp))
         }
+        BasicText("بعد ${ArabicText.duration(m.minutesToNext)}", style = Scale.HeroCountdown)
     }
 }
 
+/**
+ * The five prayers on one hairline: passed slots dim, the next slot full white with a larger dot,
+ * and the track filled up to "now" — read right-to-left like the day itself.
+ */
 @Composable
-private fun WeatherCard(cities: List<CityWeather>) {
-    GlassCard(Modifier.fillMaxWidth(), padding = 14.dp) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            val days = cities.first().days
-            Row(Modifier.fillMaxWidth()) {
-                Spacer(Modifier.weight(CITY_WEIGHT))
-                days.forEachIndexed { i, d ->
+private fun DayTimeline(m: DashboardMoment) {
+    val slots = m.prayers
+    val nextIndex = slots.indexOfFirst { it.first == m.next }.let { if (it < 0) slots.size else it }
+    val progress = timelineProgress(m)
+    Column(Modifier.fillMaxWidth()) {
+        Canvas(Modifier.fillMaxWidth().height(14.dp)) {
+            val y = size.height / 2
+            val step = size.width / slots.size
+            val first = step / 2
+            val last = size.width - step / 2
+            // RTL: slot 0 sits at the right edge.
+            fun xOf(slot: Float) = size.width - (first + slot * step)
+            drawLine(Ink.Track, Offset(xOf(0f), y), Offset(xOf((slots.size - 1).toFloat()), y), 2.dp.toPx())
+            drawLine(Ink.Primary, Offset(xOf(0f), y), Offset(xOf(progress), y), 2.dp.toPx())
+            slots.indices.forEach { i ->
+                val c = Offset(xOf(i.toFloat()), y)
+                when {
+                    i == nextIndex -> {
+                        drawCircle(Ink.Primary.copy(alpha = 0.25f), 9.dp.toPx(), c)
+                        drawCircle(Ink.Primary, 5.dp.toPx(), c)
+                    }
+                    i < nextIndex -> drawCircle(Ink.Primary, 3.5.dp.toPx(), c)
+                    else -> drawCircle(Ink.Track, 3.5.dp.toPx(), c)
+                }
+            }
+            check(last >= first)
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth()) {
+            slots.forEachIndexed { i, (prayer, at) ->
+                val tint = when {
+                    i == nextIndex -> Ink.Primary
+                    i < nextIndex -> Ink.Passed
+                    else -> Ink.Secondary
+                }
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    BasicText(prayer.arabic, style = Scale.SlotName.copy(color = tint))
                     BasicText(
-                        if (i == 0) "اليوم" else ArabicText.weekday(d.weekday),
-                        style = text(12.5.sp, FontWeight.Medium, DashColors.Secondary),
-                        modifier = Modifier.weight(1f),
+                        ArabicText.time(at),
+                        style = Scale.SlotTime.copy(color = tint, fontWeight = if (i == nextIndex) FontWeight.Bold else FontWeight.SemiBold),
                     )
                 }
             }
-            cities.forEach { CityRow(it) }
         }
     }
 }
 
-@Composable
-private fun CityRow(c: CityWeather) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Row(Modifier.weight(CITY_WEIGHT), verticalAlignment = Alignment.CenterVertically) {
-            BasicText(c.name, style = text(17.sp, FontWeight.SemiBold))
-            Spacer(Modifier.width(14.dp))
-            GlyphIcon(weatherGlyph(c.currentCode, c.isDay), 18.dp, if (c.isDay) DashColors.Label else DashColors.Accent)
-            Spacer(Modifier.width(6.dp))
-            BasicText(ArabicText.degrees(c.currentTemp), style = text(17.sp, FontWeight.Medium))
-        }
-        c.days.forEach { d ->
-            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                GlyphIcon(weatherGlyph(d.code), 15.dp)
-                Spacer(Modifier.width(5.dp))
-                BasicText(ArabicText.degrees(d.max), style = text(14.sp, FontWeight.SemiBold))
-                Spacer(Modifier.width(5.dp))
-                BasicText(ArabicText.degrees(d.min), style = text(11.5.sp, FontWeight.Medium, DashColors.Secondary))
-            }
-        }
+/** Fractional slot position of "now" between the previous and next prayer (0 = Fajr … 4 = Isha). */
+private fun timelineProgress(m: DashboardMoment): Float {
+    val slots = m.prayers
+    val now = m.minuteOfDay
+    if (now < slots.first().second) return 0f
+    for (i in 0 until slots.size - 1) {
+        val a = slots[i].second
+        val b = slots[i + 1].second
+        if (now in a until b) return i + (now - a).toFloat() / (b - a)
     }
+    return (slots.size - 1).toFloat()
 }
 
-private const val CITY_WEIGHT = 1.35f
+private fun condition(code: Int): String = when (code) {
+    0 -> "صافٍ"
+    1 -> "صافٍ غالبًا"
+    2 -> "غائم جزئيًا"
+    3 -> "غائم"
+    45, 48 -> "ضباب"
+    in 51..57 -> "رذاذ"
+    in 61..67 -> "مطر"
+    in 71..77, 85, 86 -> "ثلج"
+    in 80..82 -> "زخات مطر"
+    in 95..99 -> "عاصفة رعدية"
+    else -> "غائم"
+}
+
+private const val FORECAST_DAYS = 5
