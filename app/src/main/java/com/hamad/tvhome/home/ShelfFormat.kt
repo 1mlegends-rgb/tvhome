@@ -2,19 +2,6 @@ package com.hamad.tvhome.home
 
 import com.hamad.tvhome.tmdb.TmdbItem
 
-/** One full-screen Top Shelf page. Everything here comes from TMDB — nothing is invented. */
-data class ShelfItem(
-    val id: String,
-    val tmdbId: Long,
-    /** "movie" or "tv". */
-    val mediaType: String,
-    val title: String,
-    val meta: String,
-    val overview: String,
-    val backdropUrl: String,
-    val logoUrl: String?,
-)
-
 /** Pure formatting helpers for Top Shelf content, kept free of Android so they unit-test. */
 object ShelfFormat {
     const val MAX_ITEMS = 8

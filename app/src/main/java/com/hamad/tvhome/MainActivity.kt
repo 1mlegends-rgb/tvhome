@@ -64,6 +64,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) { HomeScreen(vm) }
         }
+        // The hero backdrop paints every pixel itself; skipping the window's black fill saves a
+        // full-screen layer per frame on low-end TV GPUs.
+        window.setBackgroundDrawable(null)
     }
 
     override fun onNewIntent(intent: Intent) {

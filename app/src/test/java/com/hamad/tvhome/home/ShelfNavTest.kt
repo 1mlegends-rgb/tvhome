@@ -26,8 +26,9 @@ class ShelfNavTest {
         assertNull(ShelfNav.move(ShelfCursor(3, PLAY), 8, Dir.Up))
     }
 
-    @Test fun `attribution reads like the HIG`() {
-        assertEquals("Featured on Netflix", ShelfSource.Provider(8).attribution("Netflix"))
-        assertEquals("Trending on YouTube", ShelfSource.Trending.attribution("YouTube"))
+    @Test fun `provider ids map to the apps that play them`() {
+        assertEquals("com.netflix.ninja", Providers.packageFor(8))
+        assertEquals("com.amazon.amazonvideo.livingroom", Providers.packageFor(119))
+        assertNull(Providers.packageFor(-1))
     }
 }

@@ -60,6 +60,32 @@ class TmdbClient private constructor(context: Context) {
             mediaType,
         )
 
+    /** TMDB's popularity chart for "movie" or "tv". */
+    suspend fun popular(mediaType: String): List<TmdbItem> = list("$mediaType/popular", emptyMap(), mediaType)
+
+    /** Highest-rated "movie" or "tv" titles. */
+    suspend fun topRated(mediaType: String): List<TmdbItem> = list("$mediaType/top_rated", emptyMap(), mediaType)
+
+    /** Popular titles in one genre (discover with_genres), ignoring titles with too few votes. */
+    suspend fun byGenre(mediaType: String, genreId: Int): List<TmdbItem> =
+        list(
+            "discover/$mediaType",
+            mapOf(
+                "with_genres" to genreId.toString(),
+                "sort_by" to "popularity.desc",
+                "vote_count.gte" to "150",
+            ),
+            mediaType,
+        )
+
+    /** Subscription (flatrate) provider ids for one title in [region], best-known first. */
+    suspend fun watchProviders(id: Long, mediaType: String, region: String): List<Int> {
+        val json = get(url("$mediaType/$id/watch/providers", emptyMap())) ?: return emptyList()
+        val flatrate = json.optJSONObject("results")?.optJSONObject(region)?.optJSONArray("flatrate")
+            ?: return emptyList()
+        return (0 until flatrate.length()).map { flatrate.getJSONObject(it).optInt("provider_id") }
+    }
+
     suspend fun search(query: String): List<TmdbItem> =
         if (query.isBlank()) emptyList()
         else list("search/multi", mapOf("query" to query, "include_adult" to "false"), null)

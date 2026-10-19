@@ -1,6 +1,5 @@
 package com.hamad.tvhome.ui
 
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.StartOffset
 import androidx.compose.animation.core.animateDpAsState
@@ -24,6 +23,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -36,13 +36,12 @@ import androidx.compose.ui.zIndex
 import com.hamad.tvhome.AppEntry
 import com.hamad.tvhome.Nudge
 
-private const val TILT_Y_DEG = 2.8f
-private const val TILT_X_DEG = 2.0f
 private const val JIGGLE_DEG = 1.5f
 private const val HIGHLIGHT_ALPHA = 0.22f
+private const val IDLE_DIM = 0.42f
 
 /**
- * One home-screen icon: tvOS focus lift with idle parallax tilt and a specular sheen, the label
+ * One home-screen icon: tvOS focus lift with a specular sheen, the label
  * only under the focused icon, jiggle in edit mode. [hidden] sinks it out of view (the dock while
  * the Top Shelf is focused) — callers move it down via [y]; this fades it.
  */
@@ -71,8 +70,9 @@ fun AppTile(
     val alpha by animateFloatAsState(if (hidden) 0f else 1f, tween(if (hidden) 220 else 320), label = "alpha")
     val glow by animateFloatAsState(if (pressed) 1f else 0f, tween(if (pressed) 90 else 260), label = "glow")
     val bump = rememberNudge(nudge, active = focused && !hidden)
+    val idle = LocalIdle.current
 
-    val tilt = if (focused && !editing && !hidden) idleTilt() else Offset.Zero
+    // No idle motion: a focused icon at rest must not cost a single frame (low-end TV GPUs).
     val jiggle = if (editing && !focused) jiggleAngle(index) else 0f
 
     Box(
@@ -90,10 +90,10 @@ fun AppTile(
                     scaleY = scale
                     translationX = bump.dx.dp.toPx()
                     translationY = bump.dy.dp.toPx()
-                    rotationX = tilt.y * lift
-                    rotationY = tilt.x * lift
                     rotationZ = jiggle
-                    cameraDistance = 18f * density
+                    // Inactivity: everything but the focused icon settles back (per-draw alpha).
+                    this.alpha = 1f - IDLE_DIM * idle() * (1f - lift).coerceAtLeast(0f)
+                    compositingStrategy = CompositingStrategy.ModulateAlpha
                     shadowElevation = (lift * 22f).dp.toPx()
                     shape = Shapes.Tile
                     clip = true
@@ -103,7 +103,7 @@ fun AppTile(
                     // Highlighted (selected) state: the icon brightens as it dips.
                     if (glow > 0.01f) drawRect(Color.White.copy(alpha = HIGHLIGHT_ALPHA * glow))
                     if (lift <= 0.01f) return@drawWithContent
-                    // tvOS's specular sheen: a soft top-down gloss plus a hotspot that tracks the tilt.
+                    // tvOS's specular sheen: a soft top-down gloss plus a hotspot above centre.
                     drawRect(
                         Brush.verticalGradient(
                             0f to Color.White.copy(alpha = 0.16f * lift),
@@ -114,7 +114,7 @@ fun AppTile(
                         Brush.radialGradient(
                             0f to Color.White.copy(alpha = 0.20f * lift),
                             1f to Color.Transparent,
-                            center = Offset(size.width * (0.5f + tilt.x / 9f), -size.height * 0.25f),
+                            center = Offset(size.width * 0.5f, -size.height * 0.25f),
                             radius = size.width * 0.8f,
                         ),
                     )
@@ -144,23 +144,6 @@ fun AppTile(
                 },
         )
     }
-}
-
-/** The idle parallax drift a focused tvOS icon has while the remote is at rest. */
-@Composable
-private fun idleTilt(): Offset {
-    val t = rememberInfiniteTransition(label = "tilt")
-    val tx by t.animateFloat(
-        -TILT_Y_DEG, TILT_Y_DEG,
-        infiniteRepeatable(tween(3400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "tx",
-    )
-    val ty by t.animateFloat(
-        TILT_X_DEG, -TILT_X_DEG,
-        infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "ty",
-    )
-    return Offset(tx, ty)
 }
 
 @Composable

@@ -1,148 +1,192 @@
 package com.hamad.tvhome.ui
 
 import android.view.KeyEvent
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.hamad.tvhome.Dir
-import com.hamad.tvhome.GridNav
-import com.hamad.tvhome.HomeState
 import com.hamad.tvhome.HomeViewModel
+import com.hamad.tvhome.home.RowScroll
 import com.hamad.tvhome.home.ShelfImages
+import com.hamad.tvhome.home.Tab
+import com.hamad.tvhome.home.TabPage
+import com.hamad.tvhome.home.Zone
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 private const val LONG_PRESS_MS = 550L
-private const val VISIBLE_ROWS_BEFORE_SCROLL = 2
+private const val VIEWPORT_DP = 540f
+private const val IDLE_AFTER_MS = 4_000L
+private const val IDLE_IN_MS = 700
+private const val IDLE_OUT_MS = 140
+private const val PREFETCH_SETTLE_MS = 80L
 
+/**
+ * Home, Apple TV app style: full-bleed hero behind a floating Liquid Glass tab bar, rows below.
+ * Layering is deliberately flat — one backdrop draw node, one page, the bar — and every animation
+ * is one-shot and read in the draw phase, so at rest the screen renders nothing at all.
+ */
 @Composable
 fun HomeScreen(vm: HomeViewModel) {
-    val s = vm.state
     val focusRequester = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
     val keys = remember { KeyRouter(vm, scope) }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
-    val shelfFocused = s.focus == HomeState.SHELF
-    val scrolled = s.focusedRow > 0
-    val extraRows = (s.focusedRow - VISIBLE_ROWS_BEFORE_SCROLL).coerceAtLeast(0)
-    val scroll = animateDpAsState(
-        if (scrolled) (Dims.DockTop - Dims.ScrolledTop) + Dims.Pitch * extraRows else 0.dp,
-        Motion.scroll(),
-        label = "scroll",
-    )
-    val shelfNudge = rememberNudge(s.nudge, active = shelfFocused)
-
-    ShelfAutoplay(vm, s)
-    ShelfPrefetch(s)
+    val (shownTab, contentAlpha) = rememberShownTab(vm)
+    val page = vm.pages.getValue(shownTab)
+    val target = remember(page) { derivedStateOf { scrollTarget(vm, page) } }
+    val scroll = remember(page) { Animatable(target.value) }
+    LaunchedEffect(page) {
+        snapshotFlow { target.value }.collectLatest { scroll.animateTo(it, Motion.scroll()) }
+    }
+    val barShown = remember(page) { derivedStateOf { page.row == Zone.BAR || target.value == 0f } }
+    val idle = rememberIdle(vm)
 
     Box(
         Modifier
             .fillMaxSize()
-            .background(Color.Black)
             .focusRequester(focusRequester)
             .focusable()
             .onPreviewKeyEvent { keys.handle(it.nativeKeyEvent) },
     ) {
-        ShelfBackground(
-            app = s.shelfApp,
-            item = s.shelfItem,
-            pageDir = s.pageDir,
-            shelfFocused = shelfFocused,
-            scrolled = scrolled,
-            scroll = scroll,
-            nudge = shelfNudge,
-        )
-        ShelfDetails(
-            item = s.shelfItem,
-            attribution = s.shelfAttribution,
-            page = s.shelfPage,
-            pageCount = s.shelfItems.size,
-            pageDir = s.pageDir,
-            visible = shelfFocused,
-            focusedButton = if (shelfFocused) s.shelfButton else -1,
-            pressedKey = s.pressedKey,
-            nudge = shelfNudge,
-        )
-        Box(Modifier.fillMaxSize().graphicsLayer { translationY = -scroll.value.toPx() }) {
-            s.apps.forEachIndexed { i, app ->
-                key(app.key) {
-                    val row = i / GridNav.COLUMNS
-                    val sunk = shelfFocused && row == 0
-                    AppTile(
-                        app = app,
-                        index = i,
-                        x = Dims.tileX(i % GridNav.COLUMNS),
-                        y = Dims.DockTop + Dims.Pitch * row + when {
-                            sunk -> Dims.ShelfDrop
-                            row > 0 && !scrolled -> Dims.LowerRowsDrop
-                            else -> 0.dp
-                        },
-                        focused = i == s.focus,
-                        hidden = sunk,
-                        editing = s.editing,
-                        pressed = s.pressedKey == app.key,
-                        nudge = s.nudge,
-                    )
+        HeroBackdrop(page, scroll)
+        CompositionLocalProvider(LocalIdle provides { idle.value }) {
+                Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        alpha = contentAlpha.value
+                        compositingStrategy = CompositingStrategy.ModulateAlpha
+                    },
+            ) {
+                if (page.tab == Tab.Apps) {
+                    AppsGrid(vm, page, { scroll.value })
+                } else {
+                    PageContent(vm, page, { scroll.value })
                 }
             }
         }
-        EditHint(visible = s.editing && s.sheet == null)
-        ActionSheetOverlay(s.sheet)
+        TabBar(vm, barShown)
+        EditHint(vm)
+        ActionSheetOverlay(vm.sheet)
+        HeroAutoplay(vm, page)
     }
 }
 
-/** While the dock has focus the shelf pages itself every ~8 s; it holds still otherwise. */
+/**
+ * HIG inactivity: a few seconds after the last press, out-of-focus content dims and the focused
+ * item expands — one 700 ms animation, then nothing. Any press restores it at once.
+ */
 @Composable
-private fun ShelfAutoplay(vm: HomeViewModel, s: HomeState) {
-    val running = s.autoplay && s.resumed && s.dockFocused && !s.editing && s.sheet == null && s.shelfItems.size > 1
-    LaunchedEffect(s.shelfApp?.key, s.shelfPage, running) {
-        if (!running) return@LaunchedEffect
-        delay(Motion.SHELF_AUTOPLAY_MS)
-        vm.advanceShelf()
+private fun rememberIdle(vm: HomeViewModel): Animatable<Float, *> {
+    val idle = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        snapshotFlow { vm.inputSeq }.collectLatest {
+            if (idle.value > 0f) idle.animateTo(0f, tween(IDLE_OUT_MS))
+            delay(IDLE_AFTER_MS)
+            if (!vm.editing && vm.sheet == null) idle.animateTo(1f, tween(IDLE_IN_MS))
+        }
     }
+    return idle
 }
 
-/** Warms the next page and the first page of every dock app so moves never wait on the network. */
+/** Tab switches fade the old page out and the new one in — never both at once (one page drawn). */
 @Composable
-private fun ShelfPrefetch(s: HomeState) {
+private fun rememberShownTab(vm: HomeViewModel): Pair<Tab, Animatable<Float, *>> {
+    var shown by remember { mutableStateOf(vm.tab) }
+    val alpha = remember { Animatable(1f) }
+    LaunchedEffect(Unit) {
+        snapshotFlow { vm.tab }.collectLatest { next ->
+            if (next != shown) {
+                alpha.animateTo(0f, tween(Motion.TAB_OUT_MS))
+                shown = next
+            }
+            alpha.animateTo(1f, tween(Motion.TAB_IN_MS))
+        }
+    }
+    return shown to alpha
+}
+
+private fun scrollTarget(vm: HomeViewModel, page: TabPage): Float {
+    if (page.tab == Tab.Apps) return gridScroll(page)
+    val heights = pageRowHeights(vm, page)
+    val top = if (page.hasHero) HomeDims.HeroH.value else HomeDims.AppsFirstTop.value
+    // Apps-first (no hero): the first row already sits under the bar, so it doesn't scroll.
+    val rowTop = if (!page.hasHero && page.row == 0) top else HomeDims.RowTop.value
+    return RowScroll.pageScroll(page.row, top, heights, rowTop, VIEWPORT_DP)
+}
+
+@Composable
+private fun HeroBackdrop(page: TabPage, scroll: Animatable<Float, *>) {
+    val url = if (page.tab == Tab.Apps) null else page.heroItem?.title?.heroUrl
+    Backdrop(
+        url = url,
+        plain = page.tab == Tab.Apps,
+        scroll = { if (page.tab == Tab.Apps) 0f else scroll.value },
+        heroH = HomeDims.HeroH.value - HomeDims.RowTop.value,
+    )
+    // Warm only the next page (baked art + logo) once the current crossfade is done, so paging
+    // never waits and the bake never competes with a running fade.
     val context = LocalContext.current
-    val items = s.shelfItems
-    LaunchedEffect(s.shelfApp?.key, s.shelfPage, items.size) {
-        if (items.size > 1) ShelfImages.prefetch(context, items[(s.shelfPage + 1) % items.size])
+    LaunchedEffect(page, page.heroPage, page.hero) {
+        val hero = page.hero
+        if (hero.size < 2) return@LaunchedEffect
+        val next = hero[(page.heroPage + 1) % hero.size]
+        ShelfImages.prefetchLogo(context, next)
+        delay(Motion.HERO_FADE_MS.toLong() + PREFETCH_SETTLE_MS)
+        next.title.heroUrl?.let { HeroArt.get(context, it) }
     }
-    val firsts = s.apps.take(s.dockCount).mapNotNull { s.shelf[it.packageName]?.firstOrNull() }
-    LaunchedEffect(firsts.map { it.id }) {
-        firsts.forEach { ShelfImages.prefetch(context, it) }
+}
+
+/** While the hero or bar has focus the carousel pages itself every ~8 s, for one loop at most. */
+@Composable
+private fun HeroAutoplay(vm: HomeViewModel, page: TabPage) {
+    val running by remember(page) {
+        derivedStateOf {
+            vm.autoplay && vm.resumed && vm.sheet == null && vm.tab == page.tab && page.row < 0 &&
+                page.hero.size > 1 && page.autoAdvances < page.hero.size
+        }
+    }
+    LaunchedEffect(page, page.heroPage, running) {
+        if (!running) return@LaunchedEffect
+        delay(Motion.HERO_AUTOPLAY_MS)
+        vm.autoAdvance()
     }
 }
 
 @Composable
-private fun EditHint(visible: Boolean) {
+private fun EditHint(vm: HomeViewModel) {
+    val visible = vm.editing && vm.sheet == null
     val alpha by animateFloatAsState(if (visible) 1f else 0f, tween(240), label = "hint")
+    if (!visible && alpha == 0f) return
     Box(Modifier.fillMaxSize().padding(bottom = 22.dp), contentAlignment = Alignment.BottomCenter) {
         BasicText(
             "Use the arrows to move  ·  Press OK when done  ·  Hold OK for more options",
