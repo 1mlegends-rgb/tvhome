@@ -66,29 +66,60 @@ object TvFonts {
     )
 }
 
-/** tvOS Dynamic Type (Large), halved: Title1 76pt → 38sp, Body 29pt → 14.5sp, … */
+/**
+ * tvOS built-in text styles (HIG › Typography), halved to dp/sp: Title 1 76/96pt Medium → 38/48sp.
+ * Weights are the HIG defaults (Medium; Subtitle 1 Regular); use [emphasized] for the HIG's
+ * "emphasized weight" (Bold / Medium). Tracking follows the HIG tvOS tracking table.
+ */
 object TvType {
     private val shadow = Shadow(Color(0x59000000), Offset(0f, 2f), 10f)
 
-    val Title1 = TextStyle(fontFamily = TvFonts.Display, fontWeight = FontWeight.Bold, fontSize = 38.sp, color = TvColors.Label)
-    val Title2 = TextStyle(fontFamily = TvFonts.Display, fontWeight = FontWeight.Bold, fontSize = 28.5.sp, color = TvColors.Label)
-    val Title3 = TextStyle(fontFamily = TvFonts.Display, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, color = TvColors.Label)
-    val Headline = TextStyle(fontFamily = TvFonts.Text, fontWeight = FontWeight.SemiBold, fontSize = 19.sp, color = TvColors.Label)
-    val Body = TextStyle(fontFamily = TvFonts.Text, fontWeight = FontWeight.Medium, fontSize = 14.5.sp, color = TvColors.Label)
-    val Callout = TextStyle(fontFamily = TvFonts.Text, fontWeight = FontWeight.Normal, fontSize = 15.5.sp, color = TvColors.Label)
-    val Subhead = TextStyle(fontFamily = TvFonts.Text, fontWeight = FontWeight.Normal, fontSize = 14.5.sp, color = TvColors.SecondaryLabel)
-    val Footnote = TextStyle(fontFamily = TvFonts.Text, fontWeight = FontWeight.Normal, fontSize = 11.5.sp, color = TvColors.SecondaryLabel)
-    val Caption1 = TextStyle(fontFamily = TvFonts.Text, fontWeight = FontWeight.Medium, fontSize = 12.5.sp, color = TvColors.SecondaryLabel)
-    val Caption2 = TextStyle(fontFamily = TvFonts.Text, fontWeight = FontWeight.Medium, fontSize = 11.5.sp, color = TvColors.SecondaryLabel)
+    private fun style(family: FontFamily, weight: FontWeight, pt: Float, leadingPt: Float, trackingPt: Float, color: Color) =
+        TextStyle(
+            fontFamily = family,
+            fontWeight = weight,
+            fontSize = (pt / 2f).sp,
+            lineHeight = (leadingPt / 2f).sp,
+            letterSpacing = (trackingPt / 2f).sp,
+            color = color,
+        )
+
+    val Title1 = style(TvFonts.Display, FontWeight.Medium, 76f, 96f, 0.07f, TvColors.Label)
+    val Title2 = style(TvFonts.Display, FontWeight.Medium, 57f, 66f, 0.30f, TvColors.Label)
+    val Title3 = style(TvFonts.Display, FontWeight.Medium, 48f, 56f, 0.35f, TvColors.Label)
+    val Headline = style(TvFonts.Display, FontWeight.Medium, 38f, 46f, 0.37f, TvColors.Label)
+    val Subtitle1 = style(TvFonts.Display, FontWeight.Normal, 38f, 46f, 0.37f, TvColors.Label)
+    val Callout = style(TvFonts.Text, FontWeight.Medium, 31f, 38f, 0.39f, TvColors.Label)
+    val Body = style(TvFonts.Text, FontWeight.Medium, 29f, 36f, 0.40f, TvColors.Label)
+    val Caption1 = style(TvFonts.Text, FontWeight.Medium, 25f, 32f, 0.15f, TvColors.SecondaryLabel)
+    val Caption2 = style(TvFonts.Text, FontWeight.Medium, 23f, 30f, -0.10f, TvColors.SecondaryLabel)
+
+    /** Not a tvOS style; kept for existing call sites. Prefer Caption2. */
+    val Subhead = Body.copy(fontWeight = FontWeight.Normal, color = TvColors.SecondaryLabel)
+    val Footnote = Caption2
+
+    /** The HIG's emphasized weight for a style (Bold for most, Medium for Subtitle 1). */
+    fun TextStyle.emphasized(): TextStyle =
+        copy(fontWeight = if (fontWeight == FontWeight.Normal) FontWeight.Medium else FontWeight.Bold)
 
     /** For text laid directly over artwork. */
     fun TextStyle.overArt(): TextStyle = copy(shadow = shadow)
 }
 
 object TvDims {
-    /** tvOS safe area: 90pt horizontal, 60pt vertical. */
-    val SafeH = 45.dp
+    /** HIG › Layout › tvOS safe area: 80pt sides, 60pt top/bottom. */
+    val SafeH = 40.dp
     val SafeV = 30.dp
+
+    /** HIG five-column grid: 320pt unfocused width, 40pt horizontal, ≥100pt vertical spacing. */
+    val Grid5Width = 160.dp
+    val GridHSpacing = 20.dp
+    val GridVSpacing = 50.dp
+
+    /** tvOS app icon: 800×480 layout (5:3) → 160×96 dp at the five-column width. */
+    val IconW = 160.dp
+    val IconH = 96.dp
+    val IconCorner = 9.dp
     val ButtonH = 33.dp
     val RowH = 33.dp
     val RowGap = 4.dp
