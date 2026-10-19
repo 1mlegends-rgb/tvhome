@@ -117,7 +117,9 @@ class PrayerDashboardDream : DreamService(), LifecycleOwner, SavedStateRegistryO
         }
         s.launch {
             while (true) {
-                instagram = data.instagram(INSTAGRAM_HANDLE) ?: instagram
+                // The account is set in local.properties (INSTAGRAM_HANDLE); blank = no Instagram block.
+                val handle = com.hamad.tvhome.BuildConfig.INSTAGRAM_HANDLE
+                if (handle.isNotBlank()) instagram = data.instagram(handle) ?: instagram
                 refresh()
                 delay(INSTAGRAM_MS)
             }
@@ -190,7 +192,6 @@ class PrayerDashboardDream : DreamService(), LifecycleOwner, SavedStateRegistryO
         const val MINUTE_MS = 60_000L
         /** Logged-out Instagram rate-limits hard; one profile read every 30 minutes stays well clear. */
         const val INSTAGRAM_MS = 30 * MINUTE_MS
-        const val INSTAGRAM_HANDLE = "hamadalaatech"
         const val WEATHER_MS = 30 * MINUTE_MS
         /** A small orbit so no pixel stays lit in the same place for hours. */
         val SHIFTS = listOf(0 to 0, 3 to 2, 5 to 0, 3 to -2, 0 to -3, -3 to -2, -5 to 0, -3 to 2)

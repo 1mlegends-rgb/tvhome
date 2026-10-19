@@ -43,8 +43,7 @@ rejection:
 ## 2. Stack & commands
 
 - Kotlin 2.3, AGP 8.13, Compose BOM 2026.05, Media3 1.8, Coil 3, OkHttp 4. minSdk 26, targetSdk 34.
-- JDK 21: `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`. Any other `java`
-  on the PATH may be Java 8 and will break Gradle.
+- JDK 21: `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`. Any other `java` on the PATH may be Java 8 and will break Gradle.
 - Build + test: `./gradlew -q :app:testReleaseUnitTest :app:assembleRelease`
 - **Install only the release APK** on the box. Debuggable Compose is too slow there.
 - Parallel installs on one emulator: `-PidSuffix=.yourname` gives you a separate applicationId.
