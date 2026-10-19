@@ -55,7 +55,7 @@ class PrayerDashboardDream : DreamService(), LifecycleOwner, SavedStateRegistryO
     private lateinit var data: DashboardData
     private var state by mutableStateOf<DashboardState?>(null)
     private var weather: List<CityWeather> = emptyList()
-    private var btc: BtcQuote? = null
+    private var instagram: InstagramStats? = null
     private var playback: AerialPlayback? = null
     private lateinit var surface: SurfaceView
     private lateinit var scrim: View
@@ -117,9 +117,9 @@ class PrayerDashboardDream : DreamService(), LifecycleOwner, SavedStateRegistryO
         }
         s.launch {
             while (true) {
-                btc = data.bitcoin() ?: btc
+                instagram = data.instagram(INSTAGRAM_HANDLE) ?: instagram
                 refresh()
-                delay(BTC_MS)
+                delay(INSTAGRAM_MS)
             }
         }
         s.launch {
@@ -135,7 +135,7 @@ class PrayerDashboardDream : DreamService(), LifecycleOwner, SavedStateRegistryO
         val now = System.currentTimeMillis()
         val minute = (now / MINUTE_MS).toInt()
         val shift = SHIFTS[minute.mod(SHIFTS.size)]
-        state = DashboardState(DashboardClock.at(now), weather, btc, shift.first.dp to shift.second.dp)
+        state = DashboardState(DashboardClock.at(now), weather, instagram, shift.first.dp to shift.second.dp)
     }
 
     private fun startVideo(clips: List<AerialClip>) {
@@ -188,7 +188,9 @@ class PrayerDashboardDream : DreamService(), LifecycleOwner, SavedStateRegistryO
         const val TAG = "PrayerDashboard"
         const val BLACK = 0xFF000000.toInt()
         const val MINUTE_MS = 60_000L
-        const val BTC_MS = 10 * MINUTE_MS
+        /** Logged-out Instagram rate-limits hard; one profile read every 30 minutes stays well clear. */
+        const val INSTAGRAM_MS = 30 * MINUTE_MS
+        const val INSTAGRAM_HANDLE = "hamadalaatech"
         const val WEATHER_MS = 30 * MINUTE_MS
         /** A small orbit so no pixel stays lit in the same place for hours. */
         val SHIFTS = listOf(0 to 0, 3 to 2, 5 to 0, 3 to -2, 0 to -3, -3 to -2, -5 to 0, -3 to 2)

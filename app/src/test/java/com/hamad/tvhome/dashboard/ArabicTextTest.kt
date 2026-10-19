@@ -14,5 +14,8 @@ class ArabicTextTest {
     @Test fun `fajr clock`() = assertEquals("٤:٣٥ ص", ArabicText.time(4 * 60 + 35))
     @Test fun `noon is pm`() = assertEquals("١٢:٠٠ م", ArabicText.time(12 * 60))
     @Test fun `date line`() = assertEquals("الأحد، ١٨ أكتوبر", ArabicText.gregorian(0, 18, 9))
+    @Test fun `rounded thousands`() = assertEquals("١٤ ألف", ArabicText.followers(14_000, exact = false))
+    @Test fun `rounded with decimal`() = assertEquals("١٤٫١ ألف", ArabicText.followers(14_100, exact = false))
+    @Test fun `exact small count`() = assertEquals("٩٬٨٧٦", ArabicText.followers(9_876, exact = true))
     @Test fun `percent`() = assertEquals("٠٫٣", ArabicText.oneDecimal(-0.3))
 }

@@ -68,5 +68,17 @@ object ArabicText {
     /** "٠٫٣" — one decimal, no sign. */
     fun oneDecimal(x: Double): String = digits(String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(x)))
 
+    /** Instagram-style follower figure in Arabic: 14000 rounded → "١٤ ألف", 14100 → "١٤٫١ ألف", 1.2M → "١٫٢ مليون". */
+    fun followers(n: Long, exact: Boolean): String = when {
+        exact || n < 10_000 -> grouped(n)
+        n < 1_000_000 -> "${trimmed(n / 1_000.0)} ألف"
+        else -> "${trimmed(n / 1_000_000.0)} مليون"
+    }
+
+    private fun trimmed(x: Double): String {
+        val s = String.format(java.util.Locale.US, "%.1f", x).removeSuffix(".0")
+        return digits(s)
+    }
+
     fun degrees(t: Int): String = "${digits(t)}°"
 }

@@ -98,7 +98,7 @@ private object Scale {
 data class DashboardState(
     val moment: DashboardMoment,
     val weather: List<CityWeather>,
-    val btc: BtcQuote?,
+    val instagram: InstagramStats?,
     /** Burn-in guard: the whole layout drifts a few dp each minute. */
     val shift: Pair<Dp, Dp>,
 )
@@ -118,8 +118,8 @@ fun DashboardScreen(state: DashboardState) {
                     .offset(state.shift.first, state.shift.second)
                     .padding(horizontal = TvDims.SafeH, vertical = TvDims.SafeV),
             ) {
-                ClockAndDates(state, Modifier.align(Alignment.TopStart))
-                if (state.weather.isNotEmpty()) Weather(state.weather, Modifier.align(Alignment.TopEnd))
+                ClockBlock(state, Modifier.align(Alignment.TopStart))
+                state.instagram?.let { InstagramBlock(it, Modifier.align(Alignment.TopEnd)) }
                 Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()) {
                     NextPrayer(state.moment)
                     Spacer(Modifier.height(26.dp))
@@ -132,64 +132,82 @@ fun DashboardScreen(state: DashboardState) {
     }
 }
 
+/*
+ * The two top blocks mirror each other line for line: a 44sp figure, then two 15sp lines.
+ * Same styles, same spacing, so the band reads as one calm row across the screen.
+ */
 @Composable
-private fun ClockAndDates(state: DashboardState, modifier: Modifier) {
+private fun ClockBlock(state: DashboardState, modifier: Modifier) {
     val m = state.moment
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(BLOCK_GAP)) {
         Row(verticalAlignment = Alignment.Bottom) {
             BasicText(ArabicText.clock(m.minuteOfDay), style = Scale.Clock)
             Spacer(Modifier.width(8.dp))
             BasicText(ArabicText.meridiem(m.minuteOfDay), style = Scale.Meridiem, modifier = Modifier.padding(bottom = 8.dp))
         }
         BasicText(if (m.hijri.isNotEmpty()) "${m.gregorian} · ${m.hijri}" else m.gregorian, style = Scale.Line)
-        Spacer(Modifier.height(4.dp))
-        m.daysToRamadan?.let { BasicText("رمضان بعد ${ArabicText.days(it)}", style = Scale.Small) }
-        state.btc?.let { q ->
+        state.weather.firstOrNull()?.let { w ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                BasicText("بيتكوين  ${ArabicText.grouped(q.usd)} $", style = Scale.Small)
+                BasicText(w.name, style = Scale.Line)
                 Spacer(Modifier.width(8.dp))
-                val down = q.change24h < 0
-                BasicText(
-                    "${if (down) "▼" else "▲"} ${ArabicText.oneDecimal(q.change24h)}٪",
-                    style = Scale.Small.copy(color = if (down) Ink.Down else Ink.Up),
-                )
+                GlyphIcon(weatherGlyph(w.currentCode, w.isDay), 17.dp)
+                Spacer(Modifier.width(6.dp))
+                BasicText("${ArabicText.degrees(w.currentTemp)}  ${condition(w.currentCode)}", style = Scale.Line)
             }
         }
     }
 }
 
 @Composable
-private fun Weather(cities: List<CityWeather>, modifier: Modifier) {
-    val main = cities.first()
-    val today = main.days.firstOrNull()
-    Column(modifier, horizontalAlignment = Alignment.End) {
-        BasicText(main.name, style = Scale.City)
+private fun InstagramBlock(ig: InstagramStats, modifier: Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(BLOCK_GAP)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            BasicText(ArabicText.followers(ig.followers, ig.followersExact), style = Scale.Clock)
+            Spacer(Modifier.width(8.dp))
+            BasicText("متابع", style = Scale.Meridiem, modifier = Modifier.padding(bottom = 8.dp))
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            GlyphIcon(weatherGlyph(main.currentCode, main.isDay), 34.dp)
-            Spacer(Modifier.width(10.dp))
-            BasicText(ArabicText.degrees(main.currentTemp), style = Scale.Temp)
+            InstagramGlyph(15.dp)
+            Spacer(Modifier.width(8.dp))
+            BasicText(ig.handle, style = Scale.Line.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr))
         }
-        BasicText(condition(main.currentCode), style = Scale.Line)
-        if (today != null) {
-            BasicText("العظمى ${ArabicText.degrees(today.max)}   الصغرى ${ArabicText.degrees(today.min)}", style = Scale.Small)
+        val change = ig.change24h
+        val detail = when {
+            change != null && change > 0 -> "▲ ${ArabicText.grouped(change)} خلال ٢٤ ساعة"
+            change != null && change < 0 -> "▼ ${ArabicText.grouped(-change)} خلال ٢٤ ساعة"
+            ig.posts != null -> "${ArabicText.grouped(ig.posts)} منشورًا"
+            else -> null
         }
-        cities.drop(1).forEach { c ->
-            BasicText("${c.name}  ${ArabicText.degrees(c.currentTemp)}", style = Scale.Small)
+        detail?.let {
+            BasicText(
+                it,
+                style = Scale.Line.copy(
+                    color = when {
+                        change != null && change > 0 -> Ink.Up
+                        change != null && change < 0 -> Ink.Down
+                        else -> Ink.Secondary
+                    },
+                ),
+            )
         }
-        Spacer(Modifier.height(16.dp))
-        Row {
-            main.days.drop(1).take(FORECAST_DAYS).forEach { d ->
-                Column(
-                    Modifier.width(FORECAST_COL),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    BasicText(ArabicText.weekday(d.weekday), style = Scale.DayName)
-                    GlyphIcon(weatherGlyph(d.code), 20.dp)
-                    BasicText(ArabicText.degrees(d.max), style = Scale.DayTemp)
-                }
-            }
-        }
+    }
+}
+
+/** Instagram's camera glyph as a white outline: rounded square, lens, flash dot. */
+@Composable
+private fun InstagramGlyph(size: Dp) {
+    Canvas(Modifier.width(size).height(size)) {
+        val w = this.size.width
+        val stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.1f)
+        drawRoundRect(
+            Ink.Secondary,
+            topLeft = Offset(w * 0.06f, w * 0.06f),
+            size = androidx.compose.ui.geometry.Size(w * 0.88f, w * 0.88f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.26f),
+            style = stroke,
+        )
+        drawCircle(Ink.Secondary, w * 0.2f, Offset(w * 0.5f, w * 0.5f), style = stroke)
+        drawCircle(Ink.Secondary, w * 0.06f, Offset(w * 0.74f, w * 0.26f))
     }
 }
 
@@ -293,6 +311,5 @@ private fun condition(code: Int): String = when (code) {
     else -> "غائم"
 }
 
-private const val FORECAST_DAYS = 5
-private val FORECAST_COL = 52.dp
+private val BLOCK_GAP = 6.dp
 private const val NOW_WINDOW_MIN = 20
