@@ -138,7 +138,7 @@ Traps that look like bugs but aren't:
 | Add a Home row | `home/ContentRepository.kt` (data) + `ui/Rows.kt` (render); keep HIG row widths |
 | Add a Settings row/page | `settings/Pages*.kt` → return `Item`/`Header` in a `PageSpec`; only real, working actions |
 | Change the prayer city/method | `prayer/PrayerTimes.kt` → new `PrayerConfig`; update tests |
-| Change the Instagram account | `dashboard/PrayerDashboardDream.kt` → `INSTAGRAM_HANDLE` |
+| Change the Instagram account | `local.properties` → `INSTAGRAM_HANDLE=yourhandle` (blank = hidden) |
 | New screensaver | Add a `DreamService` + manifest `<service>` with `BIND_DREAM_SERVICE` + an `xml/…_dream.xml` |
 | New Control Center tile | `system/SystemControls.kt` (action) + `system/ControlCenter.kt` (tile); hide it if its intent doesn't resolve |
 

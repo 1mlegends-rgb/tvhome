@@ -74,6 +74,7 @@ git clone <this repo> tvhome && cd tvhome
 cat > local.properties <<'EOF'
 sdk.dir=/path/to/Android/sdk
 TMDB_READ_TOKEN=eyJhbGciOi...your TMDB read token...
+INSTAGRAM_HANDLE=yourhandle   # optional, for the prayer screensaver
 EOF
 
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"   # JDK 21
@@ -172,7 +173,7 @@ adb shell settings put global ntp_server 162.159.200.123   # time.cloudflare.com
 | منطقة المحتوى (صفّا Netflix/Prime) | الإعدادات ← الشاشة الرئيسية ← منطقة Top Shelf ‏(Settings → Home Screen → Top Shelf Region)، وتُخزَّن في `prefs/LauncherPrefs.kt` |
 | مدينة الصلاة وطريقة الحساب | `prayer/PrayerTimes.kt` ← `PrayerConfig.BaghdadJafari` (خط العرض/الطول، وفارق التوقيت عن UTC، وزوايا الفجر/العشاء/المغرب) |
 | مدن الطقس | `dashboard/DashboardData.kt` ← `CITIES` ‏(Open-Meteo، بلا مفتاح) |
-| حساب Instagram | `dashboard/PrayerDashboardDream.kt` ← `INSTAGRAM_HANDLE` |
+| حساب Instagram | `local.properties` ← `INSTAGRAM_HANDLE=yourhandle` (فارغ = مخفي) |
 | التطبيقات المخفية، وأصوات النقر، وخيارات شاشة التوقف | تطبيق الإعدادات (تُخزَّن في `LauncherPrefs`) |
 
 ---

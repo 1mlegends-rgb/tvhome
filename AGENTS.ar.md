@@ -140,7 +140,7 @@ adb -s $S shell 'dumpsys gfxinfo com.hamad.tvhome reset; sleep 5; dumpsys gfxinf
 | إضافة صف إلى الشاشة الرئيسية | `home/ContentRepository.kt` (البيانات) + `ui/Rows.kt` (العرض)؛ والتزم بعروض الصفوف وفق HIG |
 | إضافة صف/صفحة إلى الإعدادات | `settings/Pages*.kt` ← أعِد `Item`/`Header` داخل `PageSpec`؛ وإجراءات حقيقية تعمل فقط |
 | تغيير مدينة الصلاة/طريقة الحساب | `prayer/PrayerTimes.kt` ← `PrayerConfig` جديد؛ وحدِّث الاختبارات |
-| تغيير حساب Instagram | `dashboard/PrayerDashboardDream.kt` ← `INSTAGRAM_HANDLE` |
+| تغيير حساب Instagram | `local.properties` ← `INSTAGRAM_HANDLE=yourhandle` (فارغ = مخفي) |
 | شاشة توقف جديدة | أضِف `DreamService` + عنصر `<service>` في الـ manifest مع `BIND_DREAM_SERVICE` + ملف `xml/…_dream.xml` |
 | مربّع جديد في مركز التحكم | `system/SystemControls.kt` (الإجراء) + `system/ControlCenter.kt` (المربّع)؛ وأخفِه إذا لم يُعثَر على ما يعالج الـ intent الخاص به |
 
