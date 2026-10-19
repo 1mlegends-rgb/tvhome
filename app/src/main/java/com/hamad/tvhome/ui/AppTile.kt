@@ -1,6 +1,5 @@
 package com.hamad.tvhome.ui
 
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.StartOffset
@@ -9,7 +8,6 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
@@ -19,9 +17,7 @@ import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -39,13 +35,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.hamad.tvhome.AppEntry
 import com.hamad.tvhome.Nudge
-import kotlinx.coroutines.launch
 
-private const val NUDGE_DP = 9f
 private const val TILT_Y_DEG = 2.8f
 private const val TILT_X_DEG = 2.0f
 private const val JIGGLE_DEG = 1.5f
 
+/**
+ * One home-screen icon: tvOS focus lift with idle parallax tilt and a specular sheen, the label
+ * only under the focused icon, jiggle in edit mode. [hidden] sinks it out of view (the dock while
+ * the Top Shelf is focused) — callers move it down via [y]; this fades it.
+ */
 @Composable
 fun AppTile(
     app: AppEntry,
@@ -53,7 +52,7 @@ fun AppTile(
     x: Dp,
     y: Dp,
     focused: Boolean,
-    dimmed: Boolean,
+    hidden: Boolean,
     editing: Boolean,
     pressed: Boolean,
     nudge: Nudge?,
@@ -63,35 +62,23 @@ fun AppTile(
     val targetScale = when {
         pressed -> Motion.PRESS_SCALE
         focused && editing -> Motion.EDIT_SCALE
-        focused -> Motion.FOCUS_SCALE
+        focused && !hidden -> Motion.FOCUS_SCALE
         else -> 1f
     }
     val scale by animateFloatAsState(targetScale, Motion.focus(), label = "scale")
-    val lift by animateFloatAsState(if (focused) 1f else 0f, Motion.focus(), label = "lift")
-    val alpha by animateFloatAsState(if (dimmed) Motion.DIM_ALPHA else 1f, tween(260), label = "alpha")
+    val lift by animateFloatAsState(if (focused && !hidden) 1f else 0f, Motion.focus(), label = "lift")
+    val alpha by animateFloatAsState(if (hidden) 0f else 1f, tween(if (hidden) 220 else 320), label = "alpha")
+    val bump = rememberNudge(nudge, active = focused && !hidden)
 
-    val nudgeX = remember { Animatable(0f) }
-    val nudgeY = remember { Animatable(0f) }
-    LaunchedEffect(nudge?.id) {
-        if (!focused || nudge == null) return@LaunchedEffect
-        launch {
-            nudgeX.animateTo(nudge.dir.dx * NUDGE_DP, tween(80))
-            nudgeX.animateTo(0f, spring(dampingRatio = 0.38f, stiffness = 700f))
-        }
-        launch {
-            nudgeY.animateTo(nudge.dir.dy * NUDGE_DP, tween(80))
-            nudgeY.animateTo(0f, spring(dampingRatio = 0.38f, stiffness = 700f))
-        }
-    }
-
-    val tilt = if (focused && !editing) idleTilt() else Offset.Zero
+    val tilt = if (focused && !editing && !hidden) idleTilt() else Offset.Zero
     val jiggle = if (editing && !focused) jiggleAngle(index) else 0f
 
     Box(
         Modifier
             .offset { IntOffset(ax.roundToPx(), ay.roundToPx()) }
             .zIndex(if (focused) 2f else 0f)
-            .size(Dims.TileW, Dims.TileH),
+            .size(Dims.TileW, Dims.TileH)
+            .graphicsLayer { this.alpha = alpha },
     ) {
         Box(
             Modifier
@@ -99,8 +86,8 @@ fun AppTile(
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
-                    translationX = nudgeX.value.dp.toPx()
-                    translationY = nudgeY.value.dp.toPx()
+                    translationX = bump.dx.dp.toPx()
+                    translationY = bump.dy.dp.toPx()
                     rotationX = tilt.y * lift
                     rotationY = tilt.x * lift
                     rotationZ = jiggle
@@ -108,7 +95,6 @@ fun AppTile(
                     shadowElevation = (lift * 22f).dp.toPx()
                     shape = Shapes.Tile
                     clip = true
-                    this.alpha = alpha
                 }
                 .drawWithContent {
                     drawContent()
@@ -147,7 +133,11 @@ fun AppTile(
                 .align(Alignment.TopCenter)
                 .offset(y = Dims.TileH + Dims.LabelTop)
                 .requiredWidth(Dims.TileW + 36.dp)
-                .graphicsLayer { this.alpha = if (editing) 0f else lift * alpha },
+                .graphicsLayer {
+                    this.alpha = if (editing) 0f else lift
+                    translationX = bump.dx.dp.toPx()
+                    translationY = bump.dy.dp.toPx()
+                },
         )
     }
 }

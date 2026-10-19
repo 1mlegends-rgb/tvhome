@@ -18,11 +18,15 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.hamad.tvhome.home.ClickSound
+import com.hamad.tvhome.home.ShelfImages
+import com.hamad.tvhome.prefs.LauncherPrefs
 import com.hamad.tvhome.ui.HomeScreen
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val vm: HomeViewModel by viewModels()
+    private var click: ClickSound? = null
 
     private val packageReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) = vm.reload()
@@ -30,6 +34,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ShelfImages.install()
+        click = ClickSound(this)
         registerReceiver(
             packageReceiver,
             IntentFilter().apply {
@@ -48,6 +54,12 @@ class MainActivity : ComponentActivity() {
                 vm.intents.collect(::start)
             }
         }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                val prefs = LauncherPrefs.get(this@MainActivity)
+                vm.ticks.collect { if (prefs.state.value.clickSounds) click?.play() }
+            }
+        }
         // tvOS's home layout is drawn left-to-right whatever the box's locale is.
         setContent {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) { HomeScreen(vm) }
@@ -59,8 +71,20 @@ class MainActivity : ComponentActivity() {
         if (intent.hasCategory(Intent.CATEGORY_HOME)) vm.onHome()
     }
 
+    override fun onResume() {
+        super.onResume()
+        vm.onResume()
+    }
+
+    override fun onPause() {
+        vm.onPause()
+        super.onPause()
+    }
+
     override fun onDestroy() {
         unregisterReceiver(packageReceiver)
+        click?.release()
+        click = null
         super.onDestroy()
     }
 

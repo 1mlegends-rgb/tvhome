@@ -23,11 +23,13 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.hamad.tvhome.Dir
 import com.hamad.tvhome.GridNav
 import com.hamad.tvhome.HomeState
 import com.hamad.tvhome.HomeViewModel
+import com.hamad.tvhome.home.ShelfImages
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -47,11 +49,15 @@ fun HomeScreen(vm: HomeViewModel) {
     val shelfFocused = s.focus == HomeState.SHELF
     val scrolled = s.focusedRow > 0
     val extraRows = (s.focusedRow - VISIBLE_ROWS_BEFORE_SCROLL).coerceAtLeast(0)
-    val scroll by animateDpAsState(
+    val scroll = animateDpAsState(
         if (scrolled) (Dims.DockTop - Dims.ScrolledTop) + Dims.Pitch * extraRows else 0.dp,
         Motion.scroll(),
         label = "scroll",
     )
+    val shelfNudge = rememberNudge(s.nudge, active = shelfFocused)
+
+    ShelfAutoplay(vm, s)
+    ShelfPrefetch(s)
 
     Box(
         Modifier
@@ -61,20 +67,39 @@ fun HomeScreen(vm: HomeViewModel) {
             .focusable()
             .onPreviewKeyEvent { keys.handle(it.nativeKeyEvent) },
     ) {
-        ShelfBackdrop(s.shelfApp, scrolled)
-        Box(Modifier.fillMaxSize().graphicsLayer { translationY = -scroll.toPx() }) {
-            TopShelfHero(s.shelfApp, shelfFocused, s.dockCount, s.shelfIndex)
+        ShelfBackground(
+            app = s.shelfApp,
+            item = s.shelfItem,
+            pageDir = s.pageDir,
+            shelfFocused = shelfFocused,
+            scrolled = scrolled,
+            scroll = scroll,
+            nudge = shelfNudge,
+        )
+        ShelfDetails(
+            item = s.shelfItem,
+            page = s.shelfPage,
+            pageCount = s.shelfItems.size,
+            pageDir = s.pageDir,
+            visible = shelfFocused,
+            nudge = shelfNudge,
+        )
+        Box(Modifier.fillMaxSize().graphicsLayer { translationY = -scroll.value.toPx() }) {
             s.apps.forEachIndexed { i, app ->
                 key(app.key) {
                     val row = i / GridNav.COLUMNS
-                    val drop = if (shelfFocused && row == 0) Dims.ShelfDrop else 0.dp
+                    val sunk = shelfFocused && row == 0
                     AppTile(
                         app = app,
                         index = i,
                         x = Dims.tileX(i % GridNav.COLUMNS),
-                        y = Dims.DockTop + Dims.Pitch * row + drop,
+                        y = Dims.DockTop + Dims.Pitch * row + when {
+                            sunk -> Dims.ShelfDrop
+                            row > 0 && !scrolled -> Dims.LowerRowsDrop
+                            else -> 0.dp
+                        },
                         focused = i == s.focus,
-                        dimmed = shelfFocused,
+                        hidden = sunk,
                         editing = s.editing,
                         pressed = s.pressedKey == app.key,
                         nudge = s.nudge,
@@ -84,6 +109,31 @@ fun HomeScreen(vm: HomeViewModel) {
         }
         EditHint(visible = s.editing && s.sheet == null)
         ActionSheetOverlay(s.sheet)
+    }
+}
+
+/** While the dock has focus the shelf pages itself every ~8 s; it holds still otherwise. */
+@Composable
+private fun ShelfAutoplay(vm: HomeViewModel, s: HomeState) {
+    val running = s.autoplay && s.resumed && s.dockFocused && !s.editing && s.sheet == null && s.shelfItems.size > 1
+    LaunchedEffect(s.shelfApp?.key, s.shelfPage, running) {
+        if (!running) return@LaunchedEffect
+        delay(Motion.SHELF_AUTOPLAY_MS)
+        vm.advanceShelf()
+    }
+}
+
+/** Warms the next page and the first page of every dock app so moves never wait on the network. */
+@Composable
+private fun ShelfPrefetch(s: HomeState) {
+    val context = LocalContext.current
+    val items = s.shelfItems
+    LaunchedEffect(s.shelfApp?.key, s.shelfPage, items.size) {
+        if (items.size > 1) ShelfImages.prefetch(context, items[(s.shelfPage + 1) % items.size])
+    }
+    val firsts = s.apps.take(s.dockCount).mapNotNull { s.shelf[it.packageName]?.firstOrNull() }
+    LaunchedEffect(firsts.map { it.id }) {
+        firsts.forEach { ShelfImages.prefetch(context, it) }
     }
 }
 
