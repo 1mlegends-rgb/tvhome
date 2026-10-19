@@ -96,8 +96,8 @@ object Bitmaps {
     }
 
     /**
-     * The Top Shelf's static fallback: the app art flipped, blurred and reduced to its colour.
-     * Neutral pixels (white or black banner grounds) collapse to a near-black base and only the artwork's vibrant colours survive as glows, so a white YouTube
+     * The Top Shelf's ambient field. Neutral pixels (white or black banner grounds) collapse to a
+     * near-black base and only the artwork's vibrant colours survive as glows, so a white YouTube
      * banner reads as a dark room lit red rather than a grey wash.
      */
     fun blurred(src: Bitmap): Bitmap {
@@ -105,7 +105,6 @@ object Bitmaps {
         val h = BACKDROP_H
         val px = IntArray(w * h)
         Bitmap.createScaledBitmap(src, w, h, true).getPixels(px, 0, w, 0, 0, w, h)
-        flipVertically(px, w, h)
         val hsv = FloatArray(3)
         for (i in px.indices) {
             Color.colorToHSV(px[i], hsv)
@@ -119,18 +118,6 @@ object Bitmaps {
             boxPass(px, w, h, BLUR_RADIUS, horizontal = false)
         }
         return Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888)
-    }
-
-    /** tvOS builds an app's static Top Shelf fallback by flipping and blurring its art. */
-    private fun flipVertically(px: IntArray, w: Int, h: Int) {
-        val row = IntArray(w)
-        for (y in 0 until h / 2) {
-            val top = y * w
-            val bottom = (h - 1 - y) * w
-            System.arraycopy(px, top, row, 0, w)
-            System.arraycopy(px, bottom, px, top, w)
-            System.arraycopy(row, 0, px, bottom, w)
-        }
     }
 
     private fun boxPass(px: IntArray, w: Int, h: Int, r: Int, horizontal: Boolean) {

@@ -8,6 +8,24 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 
+/** Where an app's Top Shelf content comes from. Apps not listed here get the ambient field. */
+sealed interface ShelfSource {
+    data class Provider(val providerId: Int) : ShelfSource
+    data object Trending : ShelfSource
+
+    companion object {
+        private val byPackage = mapOf(
+            "com.netflix.ninja" to Provider(TmdbClient.PROVIDER_NETFLIX),
+            "com.amazon.amazonvideo.livingroom" to Provider(TmdbClient.PROVIDER_PRIME),
+            "com.disney.disneyplus" to Provider(TmdbClient.PROVIDER_DISNEY),
+            "com.apple.atve.androidtv.appletv" to Provider(TmdbClient.PROVIDER_APPLE_TV),
+            "com.google.android.youtube.tv" to Trending,
+        )
+
+        fun forPackage(packageName: String): ShelfSource? = byPackage[packageName]
+    }
+}
+
 class ShelfRepository(private val tmdb: TmdbClient) {
 
     /** Never throws: a dead network or an unconfigured token simply yields an empty shelf. */
@@ -42,8 +60,6 @@ class ShelfRepository(private val tmdb: TmdbClient) {
         val backdrop = TmdbClient.image(item.backdropPath, BACKDROP_SIZE) ?: return null
         return ShelfItem(
             id = "${item.mediaType}/${item.id}",
-            tmdbId = item.id,
-            mediaType = item.mediaType,
             title = item.title,
             meta = ShelfFormat.meta(item),
             overview = item.overview,

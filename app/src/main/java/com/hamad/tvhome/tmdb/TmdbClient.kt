@@ -65,13 +65,6 @@ class TmdbClient private constructor(context: Context) {
         else list("search/multi", mapOf("query" to query, "include_adult" to "false"), null)
             .filter { it.mediaType == "movie" || it.mediaType == "tv" }
 
-    /** One title by id — used when another surface (Top Shelf "More Info") hands over an id. */
-    suspend fun details(id: Long, mediaType: String): TmdbItem? {
-        ensureGenres()
-        val json = get(url("$mediaType/$id", emptyMap())) ?: return null
-        return parse(json, mediaType)
-    }
-
     /** Best English (or language-neutral) title-logo path, as tvOS Top Shelf shows logos, not text. */
     suspend fun logoPath(item: TmdbItem): String? {
         val key = "${item.mediaType}/${item.id}"
@@ -103,11 +96,7 @@ class TmdbClient private constructor(context: Context) {
         val type = forcedType ?: o.optString("media_type").ifEmpty { return null }
         val title = o.optString(if (type == "tv") "name" else "title").ifEmpty { return null }
         val date = o.optString(if (type == "tv") "first_air_date" else "release_date")
-        val ids = o.optJSONArray("genre_ids") ?: JSONArray().also { arr ->
-            // Detail responses carry full genre objects instead of ids.
-            val full = o.optJSONArray("genres") ?: return@also
-            for (i in 0 until full.length()) arr.put(full.getJSONObject(i).optInt("id"))
-        }
+        val ids = o.optJSONArray("genre_ids") ?: JSONArray()
         return TmdbItem(
             id = o.optLong("id"),
             mediaType = type,
