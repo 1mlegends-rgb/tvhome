@@ -100,5 +100,20 @@
                 android:name="android.service.dream"
                 android:resource="@xml/aerial_dream" />
         </service>
+
+        <!-- Prayer-times dashboard screen saver (Baghdad, Jafari) with weather and BTC. -->
+        <service
+            android:name=".dashboard.PrayerDashboardDream"
+            android:exported="true"
+            android:label="Prayer Times"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.dream"
+                android:resource="@xml/dashboard_dream" />
+        </service>
     </application>
 </manifest>
