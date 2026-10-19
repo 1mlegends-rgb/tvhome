@@ -2,6 +2,7 @@ package com.hamad.tvhome.dashboard
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,7 +52,19 @@ private object Ink {
     val ScrimTop = Color.Black.copy(alpha = 0.55f)
     val ScrimBottom = Color.Black.copy(alpha = 0.78f)
     val TextShadow = Shadow(Color.Black.copy(alpha = 0.45f), Offset(0f, 2f), 12f)
+    /** Dark Liquid Glass: neutral, never tinted — the footage supplies the colour. */
+    val GlassBody = Color.Black.copy(alpha = 0.30f)
+    val GlassSheen = Color.White.copy(alpha = 0.07f)
+    val GlassRimTop = Color.White.copy(alpha = 0.22f)
+    val GlassRimBottom = Color.White.copy(alpha = 0.05f)
 }
+
+private val PlatterShape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp)
+
+private fun Modifier.glassPlatter(): Modifier = this
+    .background(Ink.GlassBody, PlatterShape)
+    .background(Brush.verticalGradient(listOf(Ink.GlassSheen, Color.Transparent)), PlatterShape)
+    .border(1.dp, Brush.verticalGradient(listOf(Ink.GlassRimTop, Ink.GlassRimBottom)), PlatterShape)
 
 private object Faces {
     val Arabic = FontFamily(
@@ -66,7 +79,7 @@ private fun type(size: TextUnit, weight: FontWeight, color: Color) =
     TextStyle(fontFamily = Faces.Arabic, fontWeight = weight, fontSize = size, color = color, shadow = Ink.TextShadow)
 
 private object Scale {
-    val Hero = type(64.sp, FontWeight.Bold, Ink.Primary)
+    val Hero = type(72.sp, FontWeight.SemiBold, Ink.Primary)
     val HeroTime = type(30.sp, FontWeight.Medium, Ink.Secondary)
     val HeroCountdown = type(22.sp, FontWeight.Medium, Ink.Primary)
     val Eyebrow = type(14.sp, FontWeight.Medium, Ink.Tertiary)
@@ -74,7 +87,7 @@ private object Scale {
     val Meridiem = type(18.sp, FontWeight.Medium, Ink.Secondary)
     val Line = type(15.sp, FontWeight.Medium, Ink.Secondary)
     val Small = type(13.sp, FontWeight.Medium, Ink.Tertiary)
-    val Temp = type(44.sp, FontWeight.Normal, Ink.Primary)
+    val Temp = type(52.sp, FontWeight.Normal, Ink.Primary)
     val City = type(15.sp, FontWeight.SemiBold, Ink.Secondary)
     val DayName = type(11.5.sp, FontWeight.Medium, Ink.Tertiary)
     val DayTemp = type(13.sp, FontWeight.SemiBold, Ink.Secondary)
@@ -109,8 +122,10 @@ fun DashboardScreen(state: DashboardState) {
                 if (state.weather.isNotEmpty()) Weather(state.weather, Modifier.align(Alignment.TopEnd))
                 Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()) {
                     NextPrayer(state.moment)
-                    Spacer(Modifier.height(30.dp))
-                    DayTimeline(state.moment)
+                    Spacer(Modifier.height(26.dp))
+                    Box(Modifier.fillMaxWidth().glassPlatter().padding(horizontal = 8.dp, vertical = 18.dp)) {
+                        DayTimeline(state.moment)
+                    }
                 }
             }
         }
@@ -127,14 +142,12 @@ private fun ClockAndDates(state: DashboardState, modifier: Modifier) {
             BasicText(ArabicText.meridiem(m.minuteOfDay), style = Scale.Meridiem, modifier = Modifier.padding(bottom = 8.dp))
         }
         BasicText(if (m.hijri.isNotEmpty()) "${m.gregorian} · ${m.hijri}" else m.gregorian, style = Scale.Line)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            m.daysToRamadan?.let {
-                BasicText("رمضان بعد ${ArabicText.days(it)}", style = Scale.Small)
-            }
-            state.btc?.let { q ->
-                if (m.daysToRamadan != null) BasicText("   ·   ", style = Scale.Small)
-                BasicText("بيتكوين ${ArabicText.grouped(q.usd)} $", style = Scale.Small)
-                Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.height(4.dp))
+        m.daysToRamadan?.let { BasicText("رمضان بعد ${ArabicText.days(it)}", style = Scale.Small) }
+        state.btc?.let { q ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BasicText("بيتكوين  ${ArabicText.grouped(q.usd)} $", style = Scale.Small)
+                Spacer(Modifier.width(8.dp))
                 val down = q.change24h < 0
                 BasicText(
                     "${if (down) "▼" else "▲"} ${ArabicText.oneDecimal(q.change24h)}٪",
@@ -150,38 +163,31 @@ private fun Weather(cities: List<CityWeather>, modifier: Modifier) {
     val main = cities.first()
     val today = main.days.firstOrNull()
     Column(modifier, horizontalAlignment = Alignment.End) {
+        BasicText(main.name, style = Scale.City)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            BasicText(main.name, style = Scale.City)
-            Spacer(Modifier.width(12.dp))
-            GlyphIcon(weatherGlyph(main.currentCode, main.isDay), 30.dp)
-            Spacer(Modifier.width(8.dp))
+            GlyphIcon(weatherGlyph(main.currentCode, main.isDay), 34.dp)
+            Spacer(Modifier.width(10.dp))
             BasicText(ArabicText.degrees(main.currentTemp), style = Scale.Temp)
         }
-        BasicText(
-            buildString {
-                append(condition(main.currentCode))
-                if (today != null) append("  ·  العظمى ${ArabicText.degrees(today.max)}  الصغرى ${ArabicText.degrees(today.min)}")
-            },
-            style = Scale.Small,
-        )
-        Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
-            main.days.drop(1).take(FORECAST_DAYS).forEach { d ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    BasicText(ArabicText.weekday(d.weekday), style = Scale.DayName)
-                    GlyphIcon(weatherGlyph(d.code), 18.dp)
-                    BasicText(ArabicText.degrees(d.max), style = Scale.DayTemp)
-                }
-            }
+        BasicText(condition(main.currentCode), style = Scale.Line)
+        if (today != null) {
+            BasicText("العظمى ${ArabicText.degrees(today.max)}   الصغرى ${ArabicText.degrees(today.min)}", style = Scale.Small)
         }
         cities.drop(1).forEach { c ->
-            Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                BasicText(c.name, style = Scale.Small)
-                Spacer(Modifier.width(8.dp))
-                GlyphIcon(weatherGlyph(c.currentCode, c.isDay), 15.dp)
-                Spacer(Modifier.width(6.dp))
-                BasicText(ArabicText.degrees(c.currentTemp), style = Scale.DayTemp)
+            BasicText("${c.name}  ${ArabicText.degrees(c.currentTemp)}", style = Scale.Small)
+        }
+        Spacer(Modifier.height(16.dp))
+        Row {
+            main.days.drop(1).take(FORECAST_DAYS).forEach { d ->
+                Column(
+                    Modifier.width(FORECAST_COL),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    BasicText(ArabicText.weekday(d.weekday), style = Scale.DayName)
+                    GlyphIcon(weatherGlyph(d.code), 20.dp)
+                    BasicText(ArabicText.degrees(d.max), style = Scale.DayTemp)
+                }
             }
         }
     }
@@ -189,14 +195,19 @@ private fun Weather(cities: List<CityWeather>, modifier: Modifier) {
 
 @Composable
 private fun NextPrayer(m: DashboardMoment) {
+    val now = m.minutesSincePrevious < NOW_WINDOW_MIN
     Column {
-        BasicText("الصلاة القادمة", style = Scale.Eyebrow)
+        BasicText(if (now) "حان الآن وقت صلاة" else "الصلاة القادمة", style = Scale.Eyebrow)
         Row(verticalAlignment = Alignment.Bottom) {
-            BasicText(m.next.arabic, style = Scale.Hero)
+            BasicText(if (now) m.previous.arabic else m.next.arabic, style = Scale.Hero)
             Spacer(Modifier.width(20.dp))
-            BasicText(ArabicText.time(m.nextAt), style = Scale.HeroTime, modifier = Modifier.padding(bottom = 14.dp))
+            val at = if (now) m.prayers.firstOrNull { it.first == m.previous }?.second ?: m.nextAt else m.nextAt
+            BasicText(ArabicText.time(at), style = Scale.HeroTime, modifier = Modifier.padding(bottom = 16.dp))
         }
-        BasicText("بعد ${ArabicText.duration(m.minutesToNext)}", style = Scale.HeroCountdown)
+        BasicText(
+            if (now) "${m.next.arabic} بعد ${ArabicText.duration(m.minutesToNext)}" else "بعد ${ArabicText.duration(m.minutesToNext)}",
+            style = Scale.HeroCountdown,
+        )
     }
 }
 
@@ -219,6 +230,9 @@ private fun DayTimeline(m: DashboardMoment) {
             fun xOf(slot: Float) = size.width - (first + slot * step)
             drawLine(Ink.Track, Offset(xOf(0f), y), Offset(xOf((slots.size - 1).toFloat()), y), 2.dp.toPx())
             drawLine(Ink.Primary, Offset(xOf(0f), y), Offset(xOf(progress), y), 2.dp.toPx())
+            if (progress > 0f && progress < slots.size - 1) {
+                drawCircle(Ink.Primary, 2.5.dp.toPx(), Offset(xOf(progress), y))
+            }
             slots.indices.forEach { i ->
                 val c = Offset(xOf(i.toFloat()), y)
                 when {
@@ -280,3 +294,5 @@ private fun condition(code: Int): String = when (code) {
 }
 
 private const val FORECAST_DAYS = 5
+private val FORECAST_COL = 52.dp
+private const val NOW_WINDOW_MIN = 20
