@@ -22,7 +22,11 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /** Line glyphs drawn in code (no icon font on the box). Each fits a square [size]. */
-enum class Glyph { Sun, Moon, PartlyCloudy, Cloud, Fog, Rain, Snow, Thunder, Mosque, Calendar, Crescent }
+enum class Glyph {
+    Sun, Moon, PartlyCloudy, Cloud, Fog, Rain, Snow, Thunder, Mosque, Calendar, Crescent,
+    /** Prayer-time line glyphs, drawn in the text colour. */
+    Dawn, Noon, Afternoon, Sunset, Night,
+}
 
 /** WMO weather code → glyph. Night swaps the clear sun for a moon. */
 fun weatherGlyph(code: Int, isDay: Boolean = true): Glyph = when (code) {
@@ -80,6 +84,15 @@ fun GlyphIcon(glyph: Glyph, size: Dp, color: Color = Color.White, modifier: Modi
                 }
                 drawPath(p, GlyphColors.Sun, style = stroke)
             }
+            Glyph.Dawn -> horizonSun(color, stroke, rising = true)
+            Glyph.Noon -> sunOutline(center, this.size.minDimension * 0.2f, color, stroke, rays = 8)
+            Glyph.Afternoon -> sunOutline(Offset(center.x, this.size.height * 0.56f), this.size.minDimension * 0.17f, color, stroke, rays = 5)
+            Glyph.Sunset -> horizonSun(color, stroke, rising = false)
+            Glyph.Night -> {
+                drawPath(crescentPath(), color, style = stroke)
+                drawCircle(color, stroke.width * 0.75f, Offset(this.size.width * 0.8f, this.size.height * 0.22f))
+                drawCircle(color, stroke.width * 0.55f, Offset(this.size.width * 0.66f, this.size.height * 0.1f))
+            }
             Glyph.Mosque -> mosque(color, stroke)
             Glyph.Calendar -> calendar(color, stroke)
             Glyph.Crescent -> crescentOutline(color, stroke)
@@ -95,6 +108,43 @@ private fun DrawScope.sun(c: Offset, r: Float, color: Color, stroke: Stroke) {
         val to = Offset(c.x + cos(a).toFloat() * r * 2.1f, c.y + sin(a).toFloat() * r * 2.1f)
         drawLine(color, from, to, stroke.width, StrokeCap.Round)
     }
+}
+
+private fun DrawScope.sunOutline(c: Offset, r: Float, color: Color, stroke: Stroke, rays: Int) {
+    drawCircle(color, r, c, style = stroke)
+    val step = if (rays == 8) 45.0 else 36.0
+    val start = if (rays == 8) 0.0 else 180.0
+    for (i in 0 until rays) {
+        val a = Math.toRadians(start + i * step)
+        val from = Offset(c.x + cos(a).toFloat() * r * 1.6f, c.y + sin(a).toFloat() * r * 1.6f)
+        val to = Offset(c.x + cos(a).toFloat() * r * 2.15f, c.y + sin(a).toFloat() * r * 2.15f)
+        drawLine(color, from, to, stroke.width, StrokeCap.Round)
+    }
+}
+
+/** Half sun on the horizon with an arrow: up for dawn, down for sunset (SF "sunrise"/"sunset"). */
+private fun DrawScope.horizonSun(color: Color, stroke: Stroke, rising: Boolean) {
+    val w = size.width
+    val h = size.height
+    val y = h * 0.72f
+    val r = w * 0.2f
+    drawArc(color, 180f, 180f, false, Offset(w / 2 - r, y - r), Size(r * 2, r * 2), style = stroke)
+    drawLine(color, Offset(w * 0.1f, y), Offset(w * 0.9f, y), stroke.width, StrokeCap.Round)
+    for (deg in listOf(200.0, 270.0, 340.0)) {
+        val a = Math.toRadians(deg)
+        drawLine(
+            color,
+            Offset(w / 2 + cos(a).toFloat() * r * 1.5f, y + sin(a).toFloat() * r * 1.5f),
+            Offset(w / 2 + cos(a).toFloat() * r * 1.95f, y + sin(a).toFloat() * r * 1.95f),
+            stroke.width,
+            StrokeCap.Round,
+        )
+    }
+    val ay = h * 0.9f
+    val tip = if (rising) ay - h * 0.08f else ay + h * 0.06f
+    val base = if (rising) ay + h * 0.02f else ay - h * 0.04f
+    drawLine(color, Offset(w * 0.42f, base), Offset(w / 2, tip), stroke.width, StrokeCap.Round)
+    drawLine(color, Offset(w * 0.58f, base), Offset(w / 2, tip), stroke.width, StrokeCap.Round)
 }
 
 private fun DrawScope.cloudPath(dx: Float, dy: Float, scale: Float): Path {
