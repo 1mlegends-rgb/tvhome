@@ -33,7 +33,10 @@ class SearchActivity : ComponentActivity(), SearchActions {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         model = SearchModel(applicationContext)
-        setContent { SearchApp(model, this) }
+        val deepLink = intent.getLongExtra(EXTRA_TMDB_ID, -1L).takeIf { it > 0 }?.let { id ->
+            DeepLink(id, intent.getStringExtra(EXTRA_TMDB_TYPE) ?: "movie")
+        }
+        setContent { SearchApp(model, this, deepLink) }
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
@@ -86,9 +89,11 @@ class SearchActivity : ComponentActivity(), SearchActions {
             false
         }
 
-    private companion object {
-        const val TAG = "TvSearch"
-        const val YOUTUBE_TV = "com.google.android.youtube.tv"
-        val NETFLIX_PACKAGES = listOf("com.netflix.ninja", "com.netflix.mediaclient")
+    companion object {
+        const val EXTRA_TMDB_ID = "tmdb_id"
+        const val EXTRA_TMDB_TYPE = "tmdb_type"
+        private const val TAG = "TvSearch"
+        private const val YOUTUBE_TV = "com.google.android.youtube.tv"
+        private val NETFLIX_PACKAGES = listOf("com.netflix.ninja", "com.netflix.mediaclient")
     }
 }

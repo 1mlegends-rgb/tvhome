@@ -36,6 +36,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -44,6 +45,7 @@ import com.hamad.tvhome.AppEntry
 import com.hamad.tvhome.design.TvColors
 import com.hamad.tvhome.design.TvDims
 import com.hamad.tvhome.design.TvMotion
+import com.hamad.tvhome.tmdb.TmdbClient
 import com.hamad.tvhome.tmdb.TmdbItem
 
 interface SearchActions {
@@ -59,18 +61,21 @@ interface SearchActions {
 private val RowAnchor = 34.dp
 private const val KEYBOARD_ROW = -1
 
+/** A title handed over by another surface (Top Shelf "More Info"); Back from it leaves Search. */
+data class DeepLink(val id: Long, val mediaType: String)
+
 @Composable
-fun SearchApp(model: SearchModel, actions: SearchActions) {
+fun SearchApp(model: SearchModel, actions: SearchActions, deepLink: DeepLink? = null) {
     // The box runs an Arabic (RTL) locale; tvOS Search is laid out LTR regardless.
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Box(Modifier.fillMaxSize().background(TvColors.AppBackground)) {
-            SearchScreen(model, actions)
+            SearchScreen(model, actions, deepLink)
         }
     }
 }
 
 @Composable
-private fun SearchScreen(model: SearchModel, actions: SearchActions) {
+private fun SearchScreen(model: SearchModel, actions: SearchActions, deepLink: DeepLink?) {
     val keyboardFocus = remember { FocusRequester() }
     val keyboard = remember { KeyboardState() }
     var keyboardFocused by remember { mutableStateOf(false) }
@@ -84,7 +89,16 @@ private fun SearchScreen(model: SearchModel, actions: SearchActions) {
     val scroll = remember { Animatable(0f) }
     val anchorPx = with(LocalDensity.current) { RowAnchor.toPx() }
 
+    val context = LocalContext.current
     LaunchedEffect(Unit) { model.run() }
+    LaunchedEffect(deepLink) {
+        if (deepLink == null) return@LaunchedEffect
+        val item = TmdbClient.get(context).details(deepLink.id, deepLink.mediaType)
+        if (item != null) {
+            shownProduct = item
+            product = item
+        }
+    }
     LaunchedEffect(Unit) { runCatching { keyboardFocus.requestFocus() } }
     LaunchedEffect(focusedRow, results) {
         val top = rowTops[focusedRow]
@@ -97,6 +111,7 @@ private fun SearchScreen(model: SearchModel, actions: SearchActions) {
 
     BackHandler {
         when {
+            product != null && deepLink != null -> actions.exit()
             product != null -> {
                 product = null
                 if (!focusRow(focusedRow)) focusKeyboard()
