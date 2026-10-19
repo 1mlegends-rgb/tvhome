@@ -78,10 +78,13 @@ fun HomeScreen(vm: HomeViewModel) {
         )
         ShelfDetails(
             item = s.shelfItem,
+            attribution = s.shelfAttribution,
             page = s.shelfPage,
             pageCount = s.shelfItems.size,
             pageDir = s.pageDir,
             visible = shelfFocused,
+            focusedButton = if (shelfFocused) s.shelfButton else -1,
+            pressedKey = s.pressedKey,
             nudge = shelfNudge,
         )
         Box(Modifier.fillMaxSize().graphicsLayer { translationY = -scroll.value.toPx() }) {

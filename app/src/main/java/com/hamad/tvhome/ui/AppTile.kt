@@ -39,6 +39,7 @@ import com.hamad.tvhome.Nudge
 private const val TILT_Y_DEG = 2.8f
 private const val TILT_X_DEG = 2.0f
 private const val JIGGLE_DEG = 1.5f
+private const val HIGHLIGHT_ALPHA = 0.22f
 
 /**
  * One home-screen icon: tvOS focus lift with idle parallax tilt and a specular sheen, the label
@@ -68,6 +69,7 @@ fun AppTile(
     val scale by animateFloatAsState(targetScale, Motion.focus(), label = "scale")
     val lift by animateFloatAsState(if (focused && !hidden) 1f else 0f, Motion.focus(), label = "lift")
     val alpha by animateFloatAsState(if (hidden) 0f else 1f, tween(if (hidden) 220 else 320), label = "alpha")
+    val glow by animateFloatAsState(if (pressed) 1f else 0f, tween(if (pressed) 90 else 260), label = "glow")
     val bump = rememberNudge(nudge, active = focused && !hidden)
 
     val tilt = if (focused && !editing && !hidden) idleTilt() else Offset.Zero
@@ -98,6 +100,8 @@ fun AppTile(
                 }
                 .drawWithContent {
                     drawContent()
+                    // Highlighted (selected) state: the icon brightens as it dips.
+                    if (glow > 0.01f) drawRect(Color.White.copy(alpha = HIGHLIGHT_ALPHA * glow))
                     if (lift <= 0.01f) return@drawWithContent
                     // tvOS's specular sheen: a soft top-down gloss plus a hotspot that tracks the tilt.
                     drawRect(
