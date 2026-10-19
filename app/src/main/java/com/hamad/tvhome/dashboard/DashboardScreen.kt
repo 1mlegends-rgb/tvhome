@@ -23,6 +23,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -57,14 +58,12 @@ private object Ink {
     val GlassSheen = Color.White.copy(alpha = 0.07f)
     val GlassRimTop = Color.White.copy(alpha = 0.22f)
     val GlassRimBottom = Color.White.copy(alpha = 0.05f)
+    val GlassBodyDim = Color.Black.copy(alpha = 0.18f)
+    val FocusFill = Color.White
+    val OnFocus = Color(0xFF0B0B0C)
 }
 
-private val PlatterShape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp)
 
-private fun Modifier.glassPlatter(): Modifier = this
-    .background(Ink.GlassBody, PlatterShape)
-    .background(Brush.verticalGradient(listOf(Ink.GlassSheen, Color.Transparent)), PlatterShape)
-    .border(1.dp, Brush.verticalGradient(listOf(Ink.GlassRimTop, Ink.GlassRimBottom)), PlatterShape)
 
 private object Faces {
     val Arabic = FontFamily(
@@ -91,6 +90,10 @@ private object Scale {
     val City = type(15.sp, FontWeight.SemiBold, Ink.Secondary)
     val DayName = type(11.5.sp, FontWeight.Medium, Ink.Tertiary)
     val DayTemp = type(13.sp, FontWeight.SemiBold, Ink.Secondary)
+    val Statement = type(34.sp, FontWeight.SemiBold, Ink.Primary)
+    val TileName = type(16.sp, FontWeight.Medium, Ink.Primary)
+    val TileTime = type(32.sp, FontWeight.SemiBold, Ink.Primary)
+    val TileMeridiem = type(15.sp, FontWeight.Medium, Ink.Primary)
     val SlotName = type(14.sp, FontWeight.Medium, Ink.Secondary)
     val SlotTime = type(18.sp, FontWeight.SemiBold, Ink.Secondary)
 }
@@ -122,10 +125,8 @@ fun DashboardScreen(state: DashboardState) {
                 state.instagram?.let { InstagramBlock(it, Modifier.align(Alignment.TopEnd)) }
                 Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()) {
                     NextPrayer(state.moment)
-                    Spacer(Modifier.height(26.dp))
-                    Box(Modifier.fillMaxWidth().glassPlatter().padding(horizontal = 8.dp, vertical = 18.dp)) {
-                        DayTimeline(state.moment)
-                    }
+                    Spacer(Modifier.height(22.dp))
+                    PrayerTiles(state.moment)
                 }
             }
         }
@@ -211,91 +212,89 @@ private fun InstagramGlyph(size: Dp) {
     }
 }
 
+/** One sentence, read at a glance: which prayer, and how long until it. */
 @Composable
 private fun NextPrayer(m: DashboardMoment) {
     val now = m.minutesSincePrevious < NOW_WINDOW_MIN
-    Column {
-        BasicText(if (now) "حان الآن وقت صلاة" else "الصلاة القادمة", style = Scale.Eyebrow)
-        Row(verticalAlignment = Alignment.Bottom) {
-            BasicText(if (now) m.previous.arabic else m.next.arabic, style = Scale.Hero)
-            Spacer(Modifier.width(20.dp))
-            val at = if (now) m.prayers.firstOrNull { it.first == m.previous }?.second ?: m.nextAt else m.nextAt
-            BasicText(ArabicText.time(at), style = Scale.HeroTime, modifier = Modifier.padding(bottom = 16.dp))
+    Row(verticalAlignment = Alignment.Bottom) {
+        if (now) {
+            BasicText("حان الآن وقت صلاة ", style = Scale.Statement.copy(color = Ink.Secondary))
+            BasicText(m.previous.arabic, style = Scale.Statement)
+        } else {
+            BasicText(m.next.arabic, style = Scale.Statement)
+            BasicText(" بعد ${ArabicText.duration(m.minutesToNext)}", style = Scale.Statement.copy(color = Ink.Secondary, fontWeight = FontWeight.Medium))
         }
-        BasicText(
-            if (now) "${m.next.arabic} بعد ${ArabicText.duration(m.minutesToNext)}" else "بعد ${ArabicText.duration(m.minutesToNext)}",
-            style = Scale.HeroCountdown,
-        )
     }
 }
 
 /**
- * The five prayers on one hairline: passed slots dim, the next slot full white with a larger dot,
- * and the track filled up to "now" — read right-to-left like the day itself.
+ * The day as a tvOS shelf: five equal glass tiles; the next prayer is the "focused" tile — white,
+ * black type, lifted — exactly how Apple TV marks the item you're on. Passed prayers recede.
  */
 @Composable
-private fun DayTimeline(m: DashboardMoment) {
-    val slots = m.prayers
-    val nextIndex = slots.indexOfFirst { it.first == m.next }.let { if (it < 0) slots.size else it }
-    val progress = timelineProgress(m)
-    Column(Modifier.fillMaxWidth()) {
-        Canvas(Modifier.fillMaxWidth().height(14.dp)) {
-            val y = size.height / 2
-            val step = size.width / slots.size
-            val first = step / 2
-            val last = size.width - step / 2
-            // RTL: slot 0 sits at the right edge.
-            fun xOf(slot: Float) = size.width - (first + slot * step)
-            drawLine(Ink.Track, Offset(xOf(0f), y), Offset(xOf((slots.size - 1).toFloat()), y), 2.dp.toPx())
-            drawLine(Ink.Primary, Offset(xOf(0f), y), Offset(xOf(progress), y), 2.dp.toPx())
-            if (progress > 0f && progress < slots.size - 1) {
-                drawCircle(Ink.Primary, 2.5.dp.toPx(), Offset(xOf(progress), y))
-            }
-            slots.indices.forEach { i ->
-                val c = Offset(xOf(i.toFloat()), y)
-                when {
-                    i == nextIndex -> {
-                        drawCircle(Ink.Primary.copy(alpha = 0.25f), 9.dp.toPx(), c)
-                        drawCircle(Ink.Primary, 5.dp.toPx(), c)
-                    }
-                    i < nextIndex -> drawCircle(Ink.Primary, 3.5.dp.toPx(), c)
-                    else -> drawCircle(Ink.Track, 3.5.dp.toPx(), c)
-                }
-            }
-            check(last >= first)
-        }
-        Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth()) {
-            slots.forEachIndexed { i, (prayer, at) ->
-                val tint = when {
-                    i == nextIndex -> Ink.Primary
-                    i < nextIndex -> Ink.Passed
-                    else -> Ink.Secondary
-                }
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    BasicText(prayer.arabic, style = Scale.SlotName.copy(color = tint))
-                    BasicText(
-                        ArabicText.time(at),
-                        style = Scale.SlotTime.copy(color = tint, fontWeight = if (i == nextIndex) FontWeight.Bold else FontWeight.SemiBold),
-                    )
-                }
-            }
+private fun PrayerTiles(m: DashboardMoment) {
+    val highlight = if (m.minutesSincePrevious < NOW_WINDOW_MIN) m.previous else m.next
+    val highlightIndex = m.prayers.indexOfFirst { it.first == highlight }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TILE_GAP)) {
+        m.prayers.forEachIndexed { i, (prayer, at) ->
+            PrayerTile(
+                name = prayer.arabic,
+                minuteOfDay = at,
+                state = when {
+                    i == highlightIndex -> TileState.Focused
+                    i < highlightIndex -> TileState.Passed
+                    else -> TileState.Upcoming
+                },
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }
 
-/** Fractional slot position of "now" between the previous and next prayer (0 = Fajr … 4 = Isha). */
-private fun timelineProgress(m: DashboardMoment): Float {
-    val slots = m.prayers
-    val now = m.minuteOfDay
-    if (now < slots.first().second) return 0f
-    for (i in 0 until slots.size - 1) {
-        val a = slots[i].second
-        val b = slots[i + 1].second
-        if (now in a until b) return i + (now - a).toFloat() / (b - a)
+private enum class TileState { Passed, Upcoming, Focused }
+
+@Composable
+private fun PrayerTile(name: String, minuteOfDay: Int, state: TileState, modifier: Modifier) {
+    val focused = state == TileState.Focused
+    val ink = when (state) {
+        TileState.Focused -> Ink.OnFocus
+        TileState.Upcoming -> Ink.Primary
+        TileState.Passed -> Ink.Passed
     }
-    return (slots.size - 1).toFloat()
+    Box(
+        modifier
+            .height(TILE_HEIGHT)
+            .graphicsLayer {
+                if (focused) {
+                    scaleX = FOCUS_SCALE
+                    scaleY = FOCUS_SCALE
+                    shadowElevation = 22.dp.toPx()
+                    shape = TileShape
+                    clip = false
+                }
+            }
+            .then(if (focused) Modifier.background(Ink.FocusFill, TileShape) else Modifier.tileGlass(state == TileState.Passed))
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+    ) {
+        BasicText(name, style = Scale.TileName.copy(color = ink, shadow = null), modifier = Modifier.align(Alignment.TopStart))
+        Row(Modifier.align(Alignment.BottomStart), verticalAlignment = Alignment.Bottom) {
+            BasicText(ArabicText.clock(minuteOfDay), style = Scale.TileTime.copy(color = ink, shadow = null))
+            Spacer(Modifier.width(6.dp))
+            BasicText(
+                ArabicText.meridiem(minuteOfDay),
+                style = Scale.TileMeridiem.copy(color = ink.copy(alpha = ink.alpha * 0.7f), shadow = null),
+                modifier = Modifier.padding(bottom = 5.dp),
+            )
+        }
+    }
 }
+
+private val TileShape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp)
+
+private fun Modifier.tileGlass(dim: Boolean): Modifier = this
+    .background(if (dim) Ink.GlassBodyDim else Ink.GlassBody, TileShape)
+    .background(Brush.verticalGradient(listOf(Ink.GlassSheen, Color.Transparent)), TileShape)
+    .border(1.dp, Brush.verticalGradient(listOf(Ink.GlassRimTop, Ink.GlassRimBottom)), TileShape)
 
 private fun condition(code: Int): String = when (code) {
     0 -> "صافٍ"
@@ -312,4 +311,7 @@ private fun condition(code: Int): String = when (code) {
 }
 
 private val BLOCK_GAP = 6.dp
+private val TILE_GAP = 20.dp
+private val TILE_HEIGHT = 112.dp
+private const val FOCUS_SCALE = 1.06f
 private const val NOW_WINDOW_MIN = 20
