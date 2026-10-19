@@ -13,6 +13,7 @@ import android.widget.TextView
 import androidx.core.content.res.ResourcesCompat
 import com.hamad.tvhome.R
 import com.hamad.tvhome.design.TvDims
+import com.hamad.tvhome.prayer.PrayerPanel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -22,7 +23,7 @@ import java.util.Locale
  * tvOS safe area. Plain Views: nothing here redraws per frame — the caption animates alpha only
  * and the clock ticks once a minute.
  */
-internal class AerialOverlay(context: Context, showCaption: Boolean, showClock: Boolean) {
+internal class AerialOverlay(context: Context, showCaption: Boolean, showClock: Boolean, showPrayer: Boolean = false) {
     private val res = context.resources
     private val main = Handler(Looper.getMainLooper())
     private val is24h = DateFormat.is24HourFormat(context)
@@ -58,11 +59,14 @@ internal class AerialOverlay(context: Context, showCaption: Boolean, showClock: 
         visibility = if (showClock) View.VISIBLE else View.GONE
     }
 
+    private val prayer: PrayerPanel? = if (showPrayer) PrayerPanel(context) else null
+
     private val hideCaption = Runnable { fade(caption, 0f, FADE_OUT_MS); fade(gradient, 0f, FADE_OUT_MS) }
     private val tick = object : Runnable {
         override fun run() {
             val now = System.currentTimeMillis()
             clock.text = clockFormat.format(Date(now))
+            prayer?.update(now)
             main.postDelayed(this, MINUTE_MS - now % MINUTE_MS + 50)
         }
     }
@@ -79,10 +83,11 @@ internal class AerialOverlay(context: Context, showCaption: Boolean, showClock: 
             rightMargin = safeH
             topMargin = safeV
         })
+        prayer?.let { root.addView(it.view, it.layoutParams(safeH, safeV + dp(PRAYER_TOP_DP).toInt())) }
     }
 
     fun startClock() {
-        if (clock.visibility != View.VISIBLE) return
+        if (clock.visibility != View.VISIBLE && prayer == null) return
         main.removeCallbacks(tick)
         tick.run()
     }
@@ -126,6 +131,7 @@ internal class AerialOverlay(context: Context, showCaption: Boolean, showClock: 
     private companion object {
         const val CAPTION_SP = 15f
         const val CLOCK_SP = 32f
+        const val PRAYER_TOP_DP = 62f
         const val GRADIENT_DP = 150f
         const val LABEL_90 = 0xE6FFFFFF.toInt()
         const val SHADOW = 0x73000000

@@ -158,6 +158,13 @@ internal fun screenSaverPage(c: SettingsController, p: LauncherSettings): PageSp
                 onClick = { c.prefs.update { it.copy(aerialShowClock = !it.aerialShowClock) } },
             ),
             Item(
+                "prayer",
+                "Prayer Times",
+                c.onOff(p.aerialShowPrayerTimes),
+                footer = "Baghdad · Shia (Jafari) method — shown on the screen saver.",
+                onClick = { c.prefs.update { it.copy(aerialShowPrayerTimes = !it.aerialShowPrayerTimes) } },
+            ),
+            Item(
                 "4k",
                 c.s(R.string.settings_aerial_4k),
                 c.onOff(p.aerialQuality4k),

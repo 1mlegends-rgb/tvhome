@@ -76,7 +76,7 @@ class AerialDreamService : DreamService() {
         root.addView(surface, FrameLayout.LayoutParams(fill, fill))
         root.addView(ambient, FrameLayout.LayoutParams(fill, fill))
         root.addView(scrim, FrameLayout.LayoutParams(fill, fill))
-        overlay = AerialOverlay(this, settings.aerialShowLocation, settings.aerialShowClock).also { it.attachTo(root) }
+        overlay = AerialOverlay(this, settings.aerialShowLocation, settings.aerialShowClock, settings.aerialShowPrayerTimes).also { it.attachTo(root) }
         setContentView(root)
     }
 

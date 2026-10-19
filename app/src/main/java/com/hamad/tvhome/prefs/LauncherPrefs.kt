@@ -18,6 +18,7 @@ data class LauncherSettings(
     val topShelfAutoplay: Boolean = true,
     val aerialShowLocation: Boolean = true,
     val aerialShowClock: Boolean = true,
+    val aerialShowPrayerTimes: Boolean = true,
     val aerialQuality4k: Boolean = false,
     val clickSounds: Boolean = true,
 )
@@ -35,6 +36,7 @@ class LauncherPrefs private constructor(context: Context) {
             .putBoolean(K_AUTOPLAY, next.topShelfAutoplay)
             .putBoolean(K_AERIAL_LOC, next.aerialShowLocation)
             .putBoolean(K_AERIAL_CLOCK, next.aerialShowClock)
+            .putBoolean(K_AERIAL_PRAYER, next.aerialShowPrayerTimes)
             .putBoolean(K_AERIAL_4K, next.aerialQuality4k)
             .putBoolean(K_CLICKS, next.clickSounds)
             .apply()
@@ -50,6 +52,7 @@ class LauncherPrefs private constructor(context: Context) {
             topShelfAutoplay = prefs.getBoolean(K_AUTOPLAY, d.topShelfAutoplay),
             aerialShowLocation = prefs.getBoolean(K_AERIAL_LOC, d.aerialShowLocation),
             aerialShowClock = prefs.getBoolean(K_AERIAL_CLOCK, d.aerialShowClock),
+            aerialShowPrayerTimes = prefs.getBoolean(K_AERIAL_PRAYER, d.aerialShowPrayerTimes),
             aerialQuality4k = prefs.getBoolean(K_AERIAL_4K, d.aerialQuality4k),
             clickSounds = prefs.getBoolean(K_CLICKS, d.clickSounds),
         )
@@ -61,6 +64,7 @@ class LauncherPrefs private constructor(context: Context) {
         private const val K_AUTOPLAY = "shelf_autoplay"
         private const val K_AERIAL_LOC = "aerial_location"
         private const val K_AERIAL_CLOCK = "aerial_clock"
+        private const val K_AERIAL_PRAYER = "aerial_prayer"
         private const val K_AERIAL_4K = "aerial_4k"
         private const val K_CLICKS = "click_sounds"
 
