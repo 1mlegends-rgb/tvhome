@@ -5,10 +5,11 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
-import android.provider.Settings
 import android.util.Log
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.ContextCompat
+import com.hamad.tvhome.search.SearchActivity
+import com.hamad.tvhome.settings.SettingsActivity
 
 class AppRepository(private val context: Context) {
     private val pm: PackageManager = context.packageManager
@@ -26,6 +27,7 @@ class AppRepository(private val context: Context) {
                 .onFailure { Log.w(TAG, "Skipping $pkg", it) }
         }
         settingsEntry()?.let { entries += it }
+        searchEntry()?.let { entries += it }
         return entries
     }
 
@@ -59,9 +61,24 @@ class AppRepository(private val context: Context) {
         )
     }
 
+    private fun searchEntry(): AppEntry? {
+        val glass = ContextCompat.getDrawable(context, R.drawable.ic_search) ?: return null
+        val plate = Bitmaps.searchPlate(glass)
+        return AppEntry(
+            key = SEARCH_KEY,
+            packageName = SEARCH_KEY,
+            label = "Search",
+            category = null,
+            tile = plate.asImageBitmap(),
+            backdrop = Bitmaps.blurred(plate).asImageBitmap(),
+            launchIntent = Intent(context, SearchActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            isRemovable = false,
+            isPseudo = true,
+        )
+    }
+
     private fun settingsEntry(): AppEntry? {
-        val intent = Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        if (intent.resolveActivity(pm) == null) return null
+        val intent = Intent(context, SettingsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val gear = ContextCompat.getDrawable(context, R.drawable.ic_gear) ?: return null
         val plate = Bitmaps.settingsPlate(gear)
         return AppEntry(
@@ -79,6 +96,7 @@ class AppRepository(private val context: Context) {
 
     companion object {
         const val SETTINGS_KEY = "tvhome:settings"
+        const val SEARCH_KEY = "tvhome:search"
         private const val TAG = "TvHome"
         private const val BANNER_W = 640
         private const val BANNER_H = 360

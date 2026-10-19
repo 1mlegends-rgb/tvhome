@@ -64,6 +64,25 @@ object Bitmaps {
         return bmp
     }
 
+    /** The Search plate: tvOS's near-black gradient with a white magnifier. */
+    fun searchPlate(glass: Drawable): Bitmap {
+        val bmp = Bitmap.createBitmap(TILE_W, TILE_H, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                0f, 0f, 0f, TILE_H.toFloat(),
+                Color.rgb(0x48, 0x48, 0x4E), Color.rgb(0x16, 0x16, 0x19), Shader.TileMode.CLAMP,
+            )
+        }
+        canvas.drawRect(0f, 0f, TILE_W.toFloat(), TILE_H.toFloat(), paint)
+        val size = (TILE_H * 0.5f).toInt()
+        val left = (TILE_W - size) / 2
+        val top = (TILE_H - size) / 2
+        glass.setBounds(left, top, left + size, top + size)
+        glass.draw(canvas)
+        return bmp
+    }
+
     fun averageColor(src: Bitmap): Int {
         val small = Bitmap.createScaledBitmap(src, 12, 12, true)
         var r = 0L; var g = 0L; var b = 0L; var n = 0L

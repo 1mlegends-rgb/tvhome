@@ -31,6 +31,7 @@ class OrderStore(context: Context) {
             "com.amazon.amazonvideo.livingroom",
             "com.android.vending",
             AppRepository.SETTINGS_KEY,
+            AppRepository.SEARCH_KEY,
         )
     }
 }
