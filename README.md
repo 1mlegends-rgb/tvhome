@@ -275,3 +275,6 @@ adb shell cmd package install-existing <pkg>
 ## License
 
 Personal project; no license granted yet. Add one before publishing.
+
+---
+Based on [hamdalaa/tvhome](https://github.com/hamdalaa/tvhome). Build with your own free TMDB token (see Settings > Secrets > TMDB_READ_TOKEN, then Actions > build).
