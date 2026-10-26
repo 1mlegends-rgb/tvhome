@@ -18,7 +18,7 @@ data class PrayerSnapshot(
 object PrayerSchedule {
     private val iraq: TimeZone = TimeZone.getTimeZone("Asia/Baghdad")
 
-    fun at(millis: Long, cfg: PrayerConfig = PrayerConfig.BaghdadJafari): PrayerSnapshot {
+    fun at(millis: Long, cfg: PrayerConfig = PrayerConfig.Duhok): PrayerSnapshot {
         val cal = Calendar.getInstance(iraq).apply { timeInMillis = millis }
         val today = PrayerTimes.forDay(cal[Calendar.YEAR], cal[Calendar.MONTH] + 1, cal[Calendar.DAY_OF_MONTH], cfg)
         val nowMin = cal[Calendar.HOUR_OF_DAY] * 60 + cal[Calendar.MINUTE]

@@ -42,6 +42,16 @@ data class PrayerConfig(
             ishaAngle = 14.0,
             maghribAngle = 4.0,
         )
+
+        /** Duhok, Kurdistan Region (same method as Baghdad, UTC+3). */
+        val Duhok = PrayerConfig(
+            latitude = 36.8669,
+            longitude = 42.9503,
+            utcOffsetHours = 3.0,
+            fajrAngle = 16.0,
+            ishaAngle = 14.0,
+            maghribAngle = 4.0,
+        )
     }
 }
 

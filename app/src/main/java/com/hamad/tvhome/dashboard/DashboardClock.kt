@@ -33,7 +33,7 @@ object DashboardClock {
     private const val DAY_MS = 24L * 60 * 60 * 1000
     private const val RAMADAN = 8
 
-    fun at(millis: Long, cfg: PrayerConfig = PrayerConfig.BaghdadJafari): DashboardMoment {
+    fun at(millis: Long, cfg: PrayerConfig = PrayerConfig.Duhok): DashboardMoment {
         val cal = Calendar.getInstance(zone).apply { timeInMillis = millis }
         val now = cal[Calendar.HOUR_OF_DAY] * 60 + cal[Calendar.MINUTE]
         val today = timesFor(cal, 0, cfg)
